@@ -4,66 +4,70 @@ from random import randint
 
 class Bagon(Dragon):
     def __init__(self):
-        super().__init__("Bagon", 45, [
-            Move("Rage", "NORMAL", 20),
-            Move("Leer", "NORMAL", 0),
+        moves = [
+            Move("Headbutt", "NORMAL", 70),
             Move("Bite", "DARK", 60),
-            Move("Dragon Claw", "DRAGON", 80)
-        ], "./TVPoke/Pokemon/imgs/Bagon.png")
+            Move("Ember", "FIRE", 40),
+            Move("Rage", "NORMAL", 20)
+        ]
+        super().__init__("Bagon", 45, moves, "./TVPoke/Pokemon/imgs/Bagon.png")
 
 class Shelgon(Dragon):
     def __init__(self):
-        super().__init__("Shelgon", 65, [
+        moves = [
             Move("Headbutt", "NORMAL", 70),
-            Move("Leer", "NORMAL", 0),
-            Move("Protect", "NORMAL", 0),
-            Move("Dragon Claw", "DRAGON", 80)
-        ], "./TVPoke/Pokemon/imgs/Shelgon.png")
+            Move("Bite", "DARK", 60),
+            Move("Ember", "FIRE", 40),
+            Move("Rage", "NORMAL", 20)
+        ]
+        super().__init__("Shelgon", 65, moves, "./TVPoke/Pokemon/imgs/Shelgon.png")
 
 class Salamence(Dragon):
     def __init__(self):
-        super().__init__("Salamence", 95, [
-            Move("Fly", "FLYING", 90),
-            Move("Leer", "NORMAL", 0),
-            Move("Crunch", "DARK", 80),
-            Move("Dragon Dance", "DRAGON", 0)
-        ], "./TVPoke/Pokemon/imgs/Salamence.png")
+        moves = [
+            Move("Headbutt", "NORMAL", 70),
+            Move("Bite", "DARK", 60),
+            Move("Ember", "FIRE", 40),
+            Move("Rage", "NORMAL", 20)
+        ]
+        super().__init__("Salamence", 95, moves, "./TVPoke/Pokemon/imgs/Salamence.png")
 
 class Latias(Dragon):
     def __init__(self):
-        super().__init__("Latias", 80, [
-            Move("Dragon Breath", "DRAGON", 60),
-            Move("Recover", "NORMAL", 0),
-            Move("Light Screen", "PSYCHIC", 0),
-            Move("Psychic", "PSYCHIC", 90)
-        ], "./TVPoke/Pokemon/imgs/Latias.png")
+        moves = [
+            Move("DragonBreath", "DRAGON", 60),
+            Move("Refresh", "NORMAL", 0),
+            Move("Water Sport", "WATER", 0),
+            Move("Safeguard", "NORMAL", 0)
+        ]
+        super().__init__("Latias", 80, moves, "./TVPoke/Pokemon/imgs/Latias.png")
 
 class Latios(Dragon):
     def __init__(self):
-        super().__init__("Latios", 80, [
-            Move("Dragon Breath", "DRAGON", 60),
-            Move("Recover", "NORMAL", 0),
-            Move("Calm Mind", "PSYCHIC", 0),
-            Move("Luster Purge", "PSYCHIC", 70)
-        ], "./TVPoke/Pokemon/imgs/Latios.png")
+        moves = [
+            Move("DragonBreath", "DRAGON", 60),
+            Move("Refresh", "NORMAL", 0),
+            Move("Protect", "NORMAL", 0),
+            Move("Safeguard", "NORMAL", 0)
+        ]
+        super().__init__("Latios", 80, moves, "./TVPoke/Pokemon/imgs/Latios.png")
 
 class Rayquaza(Dragon):
     def __init__(self):
-        super().__init__("Rayquaza", 105, [
+        moves = [
+            Move("Dragon Claw", "DRAGON", 80),
+            Move("AncientPower", "ROCK", 60),
             Move("Twister", "DRAGON", 40),
-            Move("Scary Face", "NORMAL", 0),
-            Move("Dragon Dance", "DRAGON", 0),
-            Move("Outrage", "DRAGON", 120)
-        ], "./TVPoke/Pokemon/imgs/Rayquaza.png")
-
-
+            Move("Dragon Dance", "DRAGON", 0)
+        ]
+        super().__init__("Rayquaza", 105, moves, "./TVPoke/Pokemon/imgs/Rayquaza.png")
 
 class Altaria(Dragon):
     def __init__(self):
-        super().__init__("Altaria", 75, [
+        moves = [
             Move("Peck", "FLYING", 35),
-            Move("Growl", "NORMAL", 0),
-            Move("Dragon Breath", "DRAGON", 60),
-            Move("Dragon Claw", "DRAGON", 80)
-        ], "./TVPoke/Pokemon/imgs/Altaria.png")
-
+            Move("Astonish", "GHOST", 30),
+            Move("Fury Attack", "NORMAL", 15),
+            Move("Mist", "ICE", 0)
+        ]
+        super().__init__("Altaria", 75, moves, "./TVPoke/Pokemon/imgs/Altaria.png")

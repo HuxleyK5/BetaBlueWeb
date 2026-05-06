@@ -4,37 +4,40 @@ from random import randint
 
 class Poochyena(Dark):
     def __init__(self):
-        super().__init__("Poochyena", 35, [
-            Move("Tackle", "NORMAL", 40),
-            Move("Growl", "NORMAL", 0),
-            Move("Sand Attack", "GROUND", 0),
-            Move("Bite", "DARK", 60)
-        ], "./TVPoke/Pokemon/imgs/Poochyena.png")
+        moves = [
+            Move("Bite", "DARK", 60),
+            Move("Tackle", "NORMAL", 35),
+            Move("Scary Face", "NORMAL", 0),
+            Move("Swagger", "NORMAL", 0)
+        ]
+        super().__init__("Poochyena", 35, moves, "./TVPoke/Pokemon/imgs/Poochyena.png")
 
 class Mightyena(Dark):
     def __init__(self):
-        super().__init__("Mightyena", 70, [
-            Move("Tackle", "NORMAL", 40),
-            Move("Growl", "NORMAL", 0),
-            Move("Sand Attack", "GROUND", 0),
-            Move("Crunch", "DARK", 80)
-        ], "./TVPoke/Pokemon/imgs/Mightyena.png")
+        moves = [
+            Move("Bite", "DARK", 60),
+            Move("Tackle", "NORMAL", 35),
+            Move("Swagger", "NORMAL", 0),
+            Move("Roar", "NORMAL", 0)
+        ]
+        super().__init__("Mightyena", 70, moves, "./TVPoke/Pokemon/imgs/Mightyena.png")
 
 class Absol(Dark):
     def __init__(self):
-        super().__init__("Absol", 65, [
-            Move("Scratch", "NORMAL", 40),
-            Move("Leer", "NORMAL", 0),
-            Move("Taunt", "DARK", 0),
-            Move("Psycho Cut", "PSYCHIC", 70)
-        ], "./TVPoke/Pokemon/imgs/Absol.png")
+        moves = [
+            Move("Razor Wind", "NORMAL", 80),
+            Move("Bite", "DARK", 60),
+            Move("Quick Attack", "NORMAL", 40),
+            Move("Scratch", "NORMAL", 40)
+        ]
+        super().__init__("Absol", 65, moves, "./TVPoke/Pokemon/imgs/Absol.png")
 
 class Sableye(Dark):
     def __init__(self):
-        super().__init__("Sableye", 50, [
+        moves = [
+            Move("Faint Attack", "DARK", 60),
+            Move("Fake Out", "NORMAL", 40),
             Move("Scratch", "NORMAL", 40),
-            Move("Leer", "NORMAL", 0),
-            Move("Night Shade", "GHOST", 0),
-            Move("Shadow Claw", "GHOST", 70)
-        ], "./TVPoke/Pokemon/imgs/Sableye.png")
-
+            Move("Astonish", "GHOST", 30)
+        ]
+        super().__init__("Sableye", 50, moves, "./TVPoke/Pokemon/imgs/Sableye.png")

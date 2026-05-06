@@ -3,109 +3,110 @@ from TVPoke.BaseClasses.Move import Move
 
 class Electrike(Electric):
     def __init__(self):
-        super().__init__("Electrike", 40, [
-            Move("Tackle", "NORMAL", 40),
-            Move("Thunder Wave", "ELECTRIC", 0),
-            Move("Leer", "NORMAL", 0),
-            Move("Howl", "NORMAL", 0)
-        ], "./TVPoke/Pokemon/imgs/Electrike.png")
-
+        moves = [
+            Move("Spark", "ELECTRIC", 65),
+            Move("Quick Attack", "NORMAL", 40),
+            Move("Tackle", "NORMAL", 35),
+            Move("Roar", "NORMAL", 0)
+        ]
+        super().__init__("Electrike", 40, moves, "./TVPoke/Pokemon/imgs/Electrike.png")
 
 class Manectric(Electric):
     def __init__(self):
-        super().__init__("Manectric", 70, [
-            Move("Tackle", "NORMAL", 40),
-            Move("Bite", "DARK", 60),
-            Move("Leer", "NORMAL", 0),
-            Move("Discharge", "ELECTRIC", 80)
-        ], "./TVPoke/Pokemon/imgs/Manectric.png")
-
+        moves = [
+            Move("Spark", "ELECTRIC", 65),
+            Move("Quick Attack", "NORMAL", 40),
+            Move("Tackle", "NORMAL", 35),
+            Move("Odor Sleuth", "NORMAL", 0)
+        ]
+        super().__init__("Manectric", 70, moves, "./TVPoke/Pokemon/imgs/Manectric.png")
 
 class Plusle(Electric):
     def __init__(self):
-        super().__init__("Plusle", 60, [
-            Move("Growl", "NORMAL", 0),
-            Move("Thunder Wave", "ELECTRIC", 0),
+        moves = [
+            Move("Spark", "ELECTRIC", 65),
             Move("Quick Attack", "NORMAL", 40),
-            Move("Helping Hand", "NORMAL", 0)
-        ], "./TVPoke/Pokemon/imgs/Plusle.png")
-
+            Move("Fake Tears", "DARK", 0),
+            Move("Encore", "NORMAL", 0)
+        ]
+        super().__init__("Plusle", 60, moves, "./TVPoke/Pokemon/imgs/Plusle.png")
 
 class Minun(Electric):
     def __init__(self):
-        super().__init__("Minun", 60, [
-            Move("Growl", "NORMAL", 0),
-            Move("Charm", "NORMAL", 0),
+        moves = [
+            Move("Spark", "ELECTRIC", 65),
             Move("Quick Attack", "NORMAL", 40),
-            Move("Spark", "ELECTRIC", 65)
-        ], "./TVPoke/Pokemon/imgs/Minun.png")
-
+            Move("Charm", "NORMAL", 0),
+            Move("Encore", "NORMAL", 0)
+        ]
+        super().__init__("Minun", 60, moves, "./TVPoke/Pokemon/imgs/Minun.png")
 
 class Magnemite(Electric):
     def __init__(self):
-        super().__init__("Magnemite", 25, [
-            Move("Metal Sound", "STEEL", 0),
-            Move("Tackle", "NORMAL", 40),
-            Move("Thunder Shock", "ELECTRIC", 40),
-            Move("Supersonic", "NORMAL", 0)
-        ], "./TVPoke/Pokemon/imgs/Magnemite.png")
-
+        moves = [
+            Move("Spark", "ELECTRIC", 65),
+            Move("ThunderShock", "ELECTRIC", 40),
+            Move("Tackle", "NORMAL", 35),
+            Move("Thunder Wave", "ELECTRIC", 0)
+        ]
+        super().__init__("Magnemite", 25, moves, "./TVPoke/Pokemon/imgs/Magnemite.png")
 
 class Magneton(Electric):
     def __init__(self):
-        super().__init__("Magneton", 50, [
-            Move("Metal Sound", "STEEL", 0),
-            Move("Bullet Punch", "STEEL", 40),
-            Move("Thunder Shock", "ELECTRIC", 40),
-            Move("Magnet Rise", "ELECTRIC", 0)
-        ], "./TVPoke/Pokemon/imgs/Magneton.png")
-
+        moves = [
+            Move("Spark", "ELECTRIC", 65),
+            Move("ThunderShock", "ELECTRIC", 40),
+            Move("Tackle", "NORMAL", 35),
+            Move("Thunder Wave", "ELECTRIC", 0)
+        ]
+        super().__init__("Magneton", 50, moves, "./TVPoke/Pokemon/imgs/Magneton.png")
 
 class Voltorb(Electric):
     def __init__(self):
-        super().__init__("Voltorb", 40, [
-            Move("Charge", "ELECTRIC", 0),
-            Move("Tackle", "NORMAL", 40),
-            Move("Screech", "NORMAL", 0),
-            Move("Sonic Boom", "NORMAL", 0)
-        ], "./TVPoke/Pokemon/imgs/Voltorb.png")
-
+        moves = [
+            Move("Selfdestruct", "NORMAL", 200),
+            Move("Spark", "ELECTRIC", 65),
+            Move("Tackle", "NORMAL", 35),
+            Move("SonicBoom", "NORMAL", 0)
+        ]
+        super().__init__("Voltorb", 40, moves, "./TVPoke/Pokemon/imgs/Voltorb.png")
 
 class Electrode(Electric):
     def __init__(self):
-        super().__init__("Electrode", 60, [
-            Move("Charge", "ELECTRIC", 0),
-            Move("Quick Attack", "NORMAL", 40),
-            Move("Screech", "NORMAL", 0),
-            Move("Thunder", "ELECTRIC", 110)
-        ], "./TVPoke/Pokemon/imgs/Electrode.png")
-
+        moves = [
+            Move("Selfdestruct", "NORMAL", 200),
+            Move("Spark", "ELECTRIC", 65),
+            Move("Tackle", "NORMAL", 35),
+            Move("SonicBoom", "NORMAL", 0)
+        ]
+        super().__init__("Electrode", 60, moves, "./TVPoke/Pokemon/imgs/Electrode.png")
 
 class Pichu(Electric):
     def __init__(self):
-        super().__init__("Pichu", 20, [
-            Move("Thunder Shock", "ELECTRIC", 40),
-            Move("Charm", "NORMAL", 0),
-            Move("Tail Whip", "NORMAL", 0),
-            Move("Thunder Wave", "ELECTRIC", 0)
-        ], "./TVPoke/Pokemon/imgs/Pichu.png")
-
+        moves = [
+            Move("ThunderShock", "ELECTRIC", 40),
+            Move("Sweet Kiss", "NORMAL", 0),
+            Move("Thunder Wave", "ELECTRIC", 0),
+            Move("Tail Whip", "NORMAL", 0)
+        ]
+        super().__init__("Pichu", 20, moves, "./TVPoke/Pokemon/imgs/Pichu.png")
 
 class Pikachu(Electric):
     def __init__(self):
-        super().__init__("Pikachu", 35, [
+        moves = [
+            Move("Thunderbolt", "ELECTRIC", 95),
+            Move("Slam", "NORMAL", 80),
             Move("Quick Attack", "NORMAL", 40),
-            Move("Growl", "NORMAL", 0),
-            Move("Tail Whip", "NORMAL", 0),
-            Move("Thunderbolt", "ELECTRIC", 90)
-        ], "./TVPoke/Pokemon/imgs/Pikachu.png")
-
+            Move("ThunderShock", "ELECTRIC", 40)
+        ]
+        super().__init__("Pikachu", 35, moves, "./TVPoke/Pokemon/imgs/Pikachu.png")
 
 class Raichu(Electric):
     def __init__(self):
-        super().__init__("Raichu", 60, [
-            Move("Thunder Shock", "ELECTRIC", 40),
-            Move("Iron Tail", "STEEL", 100),
+        moves = [
+            Move("Thunderbolt", "ELECTRIC", 95),
+            Move("ThunderShock", "ELECTRIC", 40),
             Move("Quick Attack", "NORMAL", 40),
-            Move("Thunderbolt", "ELECTRIC", 90)
-        ], "./TVPoke/Pokemon/imgs/Raichu.png")
+            Move("Tail Whip", "NORMAL", 0)
+        ]
+        super().__init__("Raichu", 60, moves, "./TVPoke/Pokemon/imgs/Raichu.png")
