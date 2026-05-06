@@ -88,6 +88,15 @@ TOWN_MAP = [
 SOLID_TILES = {TILE_TREE, TILE_WATER}
 STARTER_NAMES = ["treecko", "torchic", "mudkip"]
 EVENT_POKEMON = STARTER_NAMES + ["poochyena"]
+EVOLUTION_LEVELS = {
+    "treecko": (16, "grovyle"),
+    "grovyle": (36, "sceptile"),
+    "torchic": (16, "combusken"),
+    "combusken": (36, "blaziken"),
+    "mudkip": (16, "marshtomp"),
+    "marshtomp": (36, "swampert"),
+    "poochyena": (18, "mightyena"),
+}
 ROUTE_ASSIST_TILE = (10, 1)
 STARTER_MOVES = {
     "treecko": [
@@ -186,6 +195,7 @@ class Game:
         self.event_step = 0
         self.starter_choice = 0
         self.starter_name = None
+        self.starter_level = 5
         self.professor_rescued = False
         self.current_building = None
         self.player_battle_hp = 22
@@ -680,7 +690,10 @@ class Game:
 
         self.draw_sprite_with_shadow("poochyena", (494, 304))
         wild_label = self.font_small.render("Wild Poochyena", True, OUTLINE)
+        wild_level = self.starter_level + 1
         self.screen.blit(wild_label, (430, 306))
+        wild_level_label = self.font_small.render(f"Lv.{wild_level}", True, OUTLINE)
+        self.screen.blit(wild_level_label, (430, 326))
 
         if self.event_step == 0:
             self.draw_dialog_box(["Professor Birch: Help! A wild Pokemon", "is attacking me on the north trail!"])
@@ -688,8 +701,11 @@ class Game:
             self.draw_starter_selection()
         elif self.event_step == 2:
             starter = self.starter_name.capitalize()
-            self.draw_sprite_with_shadow(self.starter_name, (312, 304))
-            self.draw_dialog_box([f"You chose {starter}!", "The wild Poochyena wants to battle!"])
+            sprite = self.pokemon_sprites.get(self.starter_name)
+            if sprite:
+                rect = sprite.get_rect(midbottom=(318, 304))
+                self.screen.blit(sprite, rect)
+            self.draw_dialog_box([f"{starter} Lv.{self.starter_level}, I choose you!", f"{starter} drove the wild Pokemon away!"])
         else:
             starter = self.starter_name.capitalize()
             self.draw_dialog_box(["Professor Birch: Thank you!", f"Keep {starter}. Your journey begins now."], "ENTER")
@@ -781,7 +797,15 @@ class Game:
             self.current_building = None
             return
 
-        if event.key == pygame.K_RETURN:
+        if self.current_building and self.current_building["kind"] == "lab" and not self.starter_name:
+            if event.key == pygame.K_LEFT:
+                self.starter_choice = (self.starter_choice - 1) % len(STARTER_NAMES)
+            elif event.key == pygame.K_RIGHT:
+                self.starter_choice = (self.starter_choice + 1) % len(STARTER_NAMES)
+            elif event.key == pygame.K_RETURN:
+                self.starter_name = STARTER_NAMES[self.starter_choice]
+                self.starter_level = 5
+        elif event.key == pygame.K_RETURN:
             self.state = STATE_TOWN
             self.current_building = None
 
@@ -808,6 +832,7 @@ class Game:
                 self.event_step = 3
                 self.state = STATE_BATTLE
             else:
+                self.handle_starter_level_up()
                 self.professor_rescued = True
                 self.state = STATE_TOWN
                 self.player_x, self.player_y = ROUTE_ASSIST_TILE
@@ -857,6 +882,19 @@ class Game:
         self.player_battle_hp = max(0, self.player_battle_hp - 4)
         self.battle_message = "Wild Poochyena used Tackle!\nChoose your next move."
         self.event_step = 5
+    def handle_starter_level_up(self):
+        """Grant one level after the route battle and evolve if threshold is reached."""
+        if not self.starter_name:
+            return
+        self.starter_level += 1
+        self.try_starter_evolution()
+
+    def try_starter_evolution(self):
+        while self.starter_name in EVOLUTION_LEVELS:
+            required_level, evolved_name = EVOLUTION_LEVELS[self.starter_name]
+            if self.starter_level < required_level:
+                return
+            self.starter_name = evolved_name
     
     def run(self):
         """Main game loop"""
