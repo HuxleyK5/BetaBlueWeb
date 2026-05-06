@@ -44,6 +44,11 @@ TEXT_WHITE = (255, 255, 255)
 TEXT_GOLD = (255, 228, 96)
 TEXT_BLUE = (37, 95, 180)
 PLAYER_COLOR = (255, 103, 103)
+SAPPHIRE_DEEP = (22, 75, 154)
+SAPPHIRE_MID = (48, 139, 219)
+SAPPHIRE_LIGHT = (117, 213, 246)
+GBA_PANEL_BLUE = (42, 80, 168)
+GBA_PANEL_SHADOW = (127, 154, 205)
 
 # Game States
 STATE_TITLE = "title"
@@ -51,6 +56,7 @@ STATE_NAME_ENTRY = "name_entry"
 STATE_TOWN = "town"
 STATE_BUILDING = "building"
 STATE_ROUTE_EVENT = "route_event"
+STATE_BATTLE = "battle"
 
 # Map tiles
 TILE_GRASS = 0
@@ -83,6 +89,26 @@ SOLID_TILES = {TILE_TREE, TILE_WATER}
 STARTER_NAMES = ["treecko", "torchic", "mudkip"]
 EVENT_POKEMON = STARTER_NAMES + ["poochyena"]
 ROUTE_ASSIST_TILE = (10, 1)
+STARTER_MOVES = {
+    "treecko": [
+        {"name": "Pound", "power": 6},
+        {"name": "Absorb", "power": 7},
+        {"name": "Quick Attack", "power": 5},
+        {"name": "Leer", "power": 3},
+    ],
+    "torchic": [
+        {"name": "Scratch", "power": 6},
+        {"name": "Ember", "power": 8},
+        {"name": "Quick Attack", "power": 5},
+        {"name": "Growl", "power": 3},
+    ],
+    "mudkip": [
+        {"name": "Tackle", "power": 6},
+        {"name": "Water Gun", "power": 8},
+        {"name": "Mud-Slap", "power": 5},
+        {"name": "Growl", "power": 3},
+    ],
+}
 BUILDINGS = [
     {
         "id": "home",
@@ -132,7 +158,7 @@ BUILDING_TILES = {
 class Game:
     def __init__(self):
         self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-        pygame.display.set_caption("Beta Blue")
+        pygame.display.set_caption("Beta Blue Version")
         self.clock = pygame.time.Clock()
         
         self.state = STATE_TITLE
@@ -162,6 +188,10 @@ class Game:
         self.starter_name = None
         self.professor_rescued = False
         self.current_building = None
+        self.player_battle_hp = 22
+        self.wild_battle_hp = 18
+        self.selected_move = 0
+        self.battle_message = ""
 
     def load_pokemon_sprites(self):
         """Load small Pokemon sprites from the local asset folder for story events."""
@@ -190,6 +220,12 @@ class Game:
             pygame.draw.rect(self.screen, color, inner, border_radius=max(1, radius - outline_width))
         else:
             pygame.draw.rect(self.screen, color, rect, border_radius=radius)
+
+    def draw_gba_panel(self, rect, color=UI_PANEL):
+        """Draw a crisp blue-bordered panel inspired by GBA RPG text boxes."""
+        pygame.draw.rect(self.screen, GBA_PANEL_BLUE, rect, border_radius=4)
+        pygame.draw.rect(self.screen, GBA_PANEL_SHADOW, rect.inflate(-6, -6), border_radius=3)
+        pygame.draw.rect(self.screen, color, rect.inflate(-10, -10), border_radius=2)
         
     def is_solid(self, x, y):
         """Check if a tile is solid"""
@@ -304,7 +340,7 @@ class Game:
 
     def draw_dialog_box(self, lines, prompt="Press ENTER"):
         box = pygame.Rect(54, SCREEN_HEIGHT - 142, SCREEN_WIDTH - 108, 104)
-        self.draw_rounded_rect(box, UI_PANEL, radius=12, outline_color=OUTLINE, outline_width=4)
+        self.draw_gba_panel(box)
         for index, line in enumerate(lines):
             text = self.font_medium.render(line, True, OUTLINE)
             self.screen.blit(text, (box.x + 24, box.y + 18 + index * 28))
@@ -365,15 +401,18 @@ class Game:
     def draw_title_screen(self):
         """Draw the title screen"""
         # Background
-        self.screen.fill((67, 155, 217))
+        self.screen.fill(SAPPHIRE_MID)
         
         # Animated ocean-and-route pattern
         self.title_timer += 1
+        pygame.draw.rect(self.screen, SAPPHIRE_DEEP, (0, 0, SCREEN_WIDTH, 330))
+        pygame.draw.rect(self.screen, SAPPHIRE_MID, (0, 150, SCREEN_WIDTH, 180))
         pygame.draw.rect(self.screen, (114, 209, 128), (0, 360, SCREEN_WIDTH, 240))
-        pygame.draw.rect(self.screen, PATH, (0, 420, SCREEN_WIDTH, 80), border_radius=12)
+        pygame.draw.rect(self.screen, PATH, (0, 420, SCREEN_WIDTH, 80))
         for i in range(-80, SCREEN_WIDTH + 80, 80):
             wave_y = 80 + ((i + self.title_timer) % 60)
-            pygame.draw.arc(self.screen, WATER_LIGHT, (i, wave_y, 72, 28), 0, 3.14, 3)
+            pygame.draw.arc(self.screen, SAPPHIRE_LIGHT, (i, wave_y, 72, 28), 0, 3.14, 3)
+            pygame.draw.arc(self.screen, TEXT_WHITE, (i + 20, wave_y + 76, 72, 28), 0, 3.14, 2)
         
         # Title
         shadow = self.font_title.render("Beta Blue", True, OUTLINE)
@@ -382,16 +421,20 @@ class Game:
         title_text = self.font_title.render("Beta Blue", True, TEXT_GOLD)
         title_rect = title_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 92))
         self.screen.blit(title_text, title_rect)
+
+        version = self.font_large.render("VERSION", True, TEXT_WHITE)
+        version_rect = version.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 42))
+        self.screen.blit(version, version_rect)
         
         # Subtitle
-        subtitle = self.font_medium.render("Sapphire Shore Adventure", True, TEXT_WHITE)
-        subtitle_rect = subtitle.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 35))
+        subtitle = self.font_medium.render("Hoenn-inspired shore adventure", True, TEXT_WHITE)
+        subtitle_rect = subtitle.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 8))
         self.screen.blit(subtitle, subtitle_rect)
         
         # Start prompt (blinking)
         if (pygame.time.get_ticks() // 500) % 2 == 0:
-            start_text = self.font_large.render("Press ENTER", True, TEXT_WHITE)
-            start_rect = start_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 68))
+            start_text = self.font_large.render("PRESS START", True, TEXT_WHITE)
+            start_rect = start_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 82))
             self.screen.blit(start_text, start_rect)
         
         # Credits
@@ -448,6 +491,12 @@ class Game:
         for building in BUILDINGS:
             self.draw_building(building)
 
+        route_sign = pygame.Rect(348, 50, 104, 32)
+        self.draw_gba_panel(route_sign, (255, 250, 217))
+        sign_text = self.font_small.render("ROUTE 101", True, OUTLINE)
+        sign_rect = sign_text.get_rect(center=route_sign.center)
+        self.screen.blit(sign_text, sign_rect)
+
         # Draw player
         self.draw_player()
 
@@ -455,10 +504,7 @@ class Game:
         if building:
             self.draw_dialog_box([f"Enter {building['name']}?", "Press ENTER to go inside."], "ENTER")
         elif self.player_at_route_assist() and not self.professor_rescued:
-            if self.starter_name:
-                self.draw_dialog_box(["You hear the professor shouting up ahead!", "Press ENTER to help on the northern route."], "ENTER")
-            else:
-                self.draw_dialog_box(["Tall grass blocks the northern route.", "Visit the lab and choose a starter first."], "ENTER")
+            self.draw_dialog_box(["You hear the professor shouting up ahead!", "Press ENTER to enter the north trail."], "ENTER")
         elif self.player_at_route_assist() and self.professor_rescued:
             starter = self.starter_name.capitalize() if self.starter_name else "starter"
             self.draw_dialog_box([f"The northern route is calm again.", f"{starter} waits for the next challenge."], "ENTER")
@@ -492,17 +538,126 @@ class Game:
             pygame.draw.rect(self.screen, OUTLINE, (124, 170, 196, 48), 3, border_radius=8)
             pygame.draw.rect(self.screen, (166, 211, 234), (488, 158, 116, 138), border_radius=8)
             pygame.draw.rect(self.screen, OUTLINE, (488, 158, 116, 138), 3, border_radius=8)
-            if not self.starter_name:
-                self.draw_starter_selection()
+            if not self.professor_rescued:
+                self.draw_dialog_box(["Professor Birch rushed toward the north trail.", "His starter bag is missing from the lab!"], "ESC to leave")
             else:
-                starter = self.starter_name.capitalize()
-                self.draw_dialog_box([f"{starter}'s Pokeball is registered to you.", "Head north to assist Professor Birch."], "ESC to leave")
+                starter = self.starter_name.capitalize() if self.starter_name else "starter"
+                self.draw_dialog_box([f"{starter}'s Pokeball is registered to you.", "Professor Birch is safely back at work."], "ESC to leave")
         else:
             pygame.draw.rect(self.screen, (224, 174, 111), (134, 166, 170, 50), border_radius=8)
             pygame.draw.rect(self.screen, OUTLINE, (134, 166, 170, 50), 3, border_radius=8)
             pygame.draw.rect(self.screen, (126, 84, 58), (506, 150, 92, 130), border_radius=8)
             pygame.draw.rect(self.screen, OUTLINE, (506, 150, 92, 130), 3, border_radius=8)
             self.draw_dialog_box(building["message"], "ESC to leave")
+
+    def draw_sprite_with_shadow(self, name, midbottom):
+        sprite = self.pokemon_sprites.get(name)
+        if not sprite:
+            return
+        rect = sprite.get_rect(midbottom=midbottom)
+        pygame.draw.ellipse(
+            self.screen,
+            (81, 120, 82),
+            (rect.x + 4, rect.bottom - 8, max(12, rect.width - 8), 8),
+        )
+        self.screen.blit(sprite, rect)
+
+    def draw_hp_bar(self, x, y, label, hp, max_hp):
+        panel = pygame.Rect(x, y, 190, 54)
+        self.draw_gba_panel(panel)
+        name_text = self.font_small.render(label, True, OUTLINE)
+        self.screen.blit(name_text, (panel.x + 12, panel.y + 8))
+        pygame.draw.rect(self.screen, OUTLINE, (panel.x + 12, panel.y + 32, 142, 10), border_radius=4)
+        fill_width = max(0, int(138 * hp / max_hp))
+        hp_color = (74, 190, 98) if hp > max_hp // 2 else (242, 178, 66)
+        pygame.draw.rect(self.screen, hp_color, (panel.x + 14, panel.y + 34, fill_width, 6), border_radius=3)
+
+    def draw_battle_platform(self, center, size, top_color, side_color):
+        x, y = center
+        width, height = size
+        shadow = pygame.Rect(0, 0, width + 36, height + 18)
+        shadow.center = (x, y + 18)
+        pygame.draw.ellipse(self.screen, (67, 116, 93), shadow)
+        side = pygame.Rect(0, 0, width, height)
+        side.center = (x, y + 12)
+        pygame.draw.ellipse(self.screen, side_color, side)
+        top = pygame.Rect(0, 0, width, height)
+        top.center = center
+        pygame.draw.ellipse(self.screen, OUTLINE, top.inflate(8, 8))
+        pygame.draw.ellipse(self.screen, top_color, top)
+        pygame.draw.arc(self.screen, (255, 247, 194), top.inflate(-20, -10), 3.35, 5.95, 3)
+
+    def draw_battle_pokemon(self, name, midbottom, max_size):
+        sprite = self.pokemon_sprites.get(name)
+        if not sprite:
+            return
+        width, height = sprite.get_size()
+        scale = min(max_size / width, max_size / height)
+        battle_sprite = pygame.transform.scale(sprite, (int(width * scale), int(height * scale)))
+        rect = battle_sprite.get_rect(midbottom=midbottom)
+        pygame.draw.ellipse(
+            self.screen,
+            (57, 93, 76),
+            (rect.x + 8, rect.bottom - 12, max(22, rect.width - 16), 14),
+        )
+        self.screen.blit(battle_sprite, rect)
+
+    def draw_battle_scene(self):
+        """Draw a separate, more dimensional Pokemon-style battle screen."""
+        starter = self.starter_name.capitalize()
+
+        self.screen.fill(SAPPHIRE_LIGHT)
+        pygame.draw.rect(self.screen, (226, 247, 255), (0, 0, SCREEN_WIDTH, 92))
+        pygame.draw.rect(self.screen, SAPPHIRE_LIGHT, (0, 92, SCREEN_WIDTH, 72))
+        pygame.draw.rect(self.screen, (132, 212, 145), (0, 164, SCREEN_WIDTH, 246))
+        for stripe_y in range(176, 390, 28):
+            pygame.draw.line(self.screen, (112, 196, 132), (0, stripe_y), (SCREEN_WIDTH, stripe_y - 42), 2)
+        pygame.draw.polygon(
+            self.screen,
+            (91, 185, 119),
+            [(0, 410), (SCREEN_WIDTH, 410), (620, 250), (180, 250)],
+        )
+        pygame.draw.polygon(
+            self.screen,
+            (236, 211, 139),
+            [(196, 410), (604, 410), (488, 272), (314, 272)],
+        )
+        for offset in range(0, SCREEN_WIDTH, 92):
+            pygame.draw.circle(self.screen, TREE_DARK, (offset + 34, 140), 34)
+            pygame.draw.circle(self.screen, TREE, (offset + 48, 128), 26)
+
+        self.draw_battle_platform((560, 236), (210, 70), (121, 214, 126), (70, 159, 98))
+        self.draw_battle_platform((238, 358), (260, 88), (121, 214, 126), (70, 159, 98))
+        self.draw_battle_pokemon("poochyena", (560, 224), 86)
+        self.draw_battle_pokemon(self.starter_name, (238, 342), 122)
+        self.draw_hp_bar(72, 104, starter, self.player_battle_hp, 22)
+        self.draw_hp_bar(526, 86, "Poochyena", self.wild_battle_hp, 18)
+
+        command_box = pygame.Rect(48, 410, SCREEN_WIDTH - 96, 138)
+        self.draw_gba_panel(command_box)
+
+        if self.event_step == 3:
+            prompt = self.font_medium.render(f"What will {starter} do?", True, OUTLINE)
+            self.screen.blit(prompt, (command_box.x + 24, command_box.y + 18))
+            moves = STARTER_MOVES[self.starter_name]
+            for index, move in enumerate(moves):
+                col = index % 2
+                row = index // 2
+                move_rect = pygame.Rect(command_box.x + 300 + col * 170, command_box.y + 18 + row * 46, 150, 34)
+                selected = index == self.selected_move
+                color = (255, 248, 207) if selected else (233, 244, 255)
+                outline = TEXT_GOLD if selected else OUTLINE
+                self.draw_rounded_rect(move_rect, color, radius=7, outline_color=outline, outline_width=2)
+                move_text = self.font_small.render(move["name"], True, OUTLINE)
+                self.screen.blit(move_text, (move_rect.x + 12, move_rect.y + 8))
+        else:
+            lines = self.battle_message.split("\n")
+            for index, line in enumerate(lines):
+                text = self.font_medium.render(line, True, OUTLINE)
+                self.screen.blit(text, (command_box.x + 24, command_box.y + 24 + index * 32))
+            prompt = self.font_small.render("Press ENTER", True, TEXT_BLUE)
+            prompt_rect = prompt.get_rect(right=command_box.right - 24, bottom=command_box.bottom - 16)
+            self.screen.blit(prompt, prompt_rect)
 
     def draw_route_event(self):
         """Draw the rescue sequence on the northern route."""
@@ -515,28 +670,26 @@ class Game:
         for x in range(40, SCREEN_WIDTH, 86):
             pygame.draw.circle(self.screen, TREE_DARK, (x, 88), 24)
             pygame.draw.circle(self.screen, TREE, (x + 8, 82), 18)
-        pygame.draw.circle(self.screen, (239, 214, 191), (394, 210), 17)
-        pygame.draw.rect(self.screen, (94, 171, 230), (378, 226, 32, 46), border_radius=8)
-        professor_label = self.font_small.render("PROF.", True, OUTLINE)
-        self.screen.blit(professor_label, (374, 278))
 
-        wild = self.pokemon_sprites.get("poochyena")
-        if wild:
-            wild_rect = wild.get_rect(midbottom=(480, 300))
-            pygame.draw.ellipse(self.screen, (161, 120, 76), (wild_rect.x + 3, wild_rect.bottom - 8, wild_rect.width - 6, 8))
-            self.screen.blit(wild, wild_rect)
+        professor_x = 350 if self.event_step < 4 else 230
+        professor_y = 226 if self.event_step < 4 else 238
+        pygame.draw.circle(self.screen, (239, 214, 191), (professor_x + 16, professor_y - 16), 17)
+        pygame.draw.rect(self.screen, (94, 171, 230), (professor_x, professor_y, 32, 46), border_radius=8)
+        professor_label = self.font_small.render("PROF.", True, OUTLINE)
+        self.screen.blit(professor_label, (professor_x - 4, professor_y + 52))
+
+        self.draw_sprite_with_shadow("poochyena", (494, 304))
         wild_label = self.font_small.render("Wild Poochyena", True, OUTLINE)
         self.screen.blit(wild_label, (430, 306))
 
         if self.event_step == 0:
-            self.draw_dialog_box(["Professor Birch: Help! A wild Pokemon", "cornered me while I checked my notes!"])
+            self.draw_dialog_box(["Professor Birch: Help! A wild Pokemon", "is attacking me on the north trail!"])
         elif self.event_step == 1:
+            self.draw_starter_selection()
+        elif self.event_step == 2:
             starter = self.starter_name.capitalize()
-            sprite = self.pokemon_sprites.get(self.starter_name)
-            if sprite:
-                rect = sprite.get_rect(midbottom=(318, 304))
-                self.screen.blit(sprite, rect)
-            self.draw_dialog_box([f"{starter}, I choose you!", f"{starter} drove the wild Pokemon away!"])
+            self.draw_sprite_with_shadow(self.starter_name, (312, 304))
+            self.draw_dialog_box([f"You chose {starter}!", "The wild Poochyena wants to battle!"])
         else:
             starter = self.starter_name.capitalize()
             self.draw_dialog_box(["Professor Birch: Thank you!", f"Keep {starter}. Your journey begins now."], "ENTER")
@@ -586,9 +739,13 @@ class Game:
             return
 
         if event.key == pygame.K_RETURN and self.player_at_route_assist():
-            if self.starter_name and not self.professor_rescued:
+            if not self.professor_rescued:
                 self.state = STATE_ROUTE_EVENT
                 self.event_step = 0
+                self.player_battle_hp = 22
+                self.wild_battle_hp = 18
+                self.selected_move = 0
+                self.battle_message = ""
             return
 
         new_x, new_y = self.player_x, self.player_y
@@ -624,14 +781,7 @@ class Game:
             self.current_building = None
             return
 
-        if self.current_building and self.current_building["kind"] == "lab" and not self.starter_name:
-            if event.key == pygame.K_LEFT:
-                self.starter_choice = (self.starter_choice - 1) % len(STARTER_NAMES)
-            elif event.key == pygame.K_RIGHT:
-                self.starter_choice = (self.starter_choice + 1) % len(STARTER_NAMES)
-            elif event.key == pygame.K_RETURN:
-                self.starter_name = STARTER_NAMES[self.starter_choice]
-        elif event.key == pygame.K_RETURN:
+        if event.key == pygame.K_RETURN:
             self.state = STATE_TOWN
             self.current_building = None
 
@@ -641,16 +791,72 @@ class Game:
             self.state = STATE_TOWN
             return
 
+        if self.event_step == 1:
+            if event.key == pygame.K_LEFT:
+                self.starter_choice = (self.starter_choice - 1) % len(STARTER_NAMES)
+            elif event.key == pygame.K_RIGHT:
+                self.starter_choice = (self.starter_choice + 1) % len(STARTER_NAMES)
+            elif event.key == pygame.K_RETURN:
+                self.starter_name = STARTER_NAMES[self.starter_choice]
+                self.event_step = 2
+            return
+
         if event.key == pygame.K_RETURN:
             if self.event_step == 0:
                 self.event_step = 1
-            elif self.event_step == 1:
-                self.event_step = 2
+            elif self.event_step == 2:
+                self.event_step = 3
+                self.state = STATE_BATTLE
             else:
                 self.professor_rescued = True
                 self.state = STATE_TOWN
                 self.player_x, self.player_y = ROUTE_ASSIST_TILE
                 self.player_direction = "down"
+
+    def handle_battle_input(self, event):
+        """Handle the separate move-selection battle screen."""
+        if self.event_step == 3:
+            if event.key == pygame.K_LEFT:
+                self.selected_move = self.selected_move - 1 if self.selected_move % 2 == 1 else self.selected_move + 1
+            elif event.key == pygame.K_RIGHT:
+                self.selected_move = self.selected_move + 1 if self.selected_move % 2 == 0 else self.selected_move - 1
+            elif event.key == pygame.K_UP:
+                self.selected_move = (self.selected_move - 2) % 4
+            elif event.key == pygame.K_DOWN:
+                self.selected_move = (self.selected_move + 2) % 4
+            elif event.key == pygame.K_RETURN:
+                self.use_selected_move()
+            return
+
+        if event.key == pygame.K_RETURN:
+            if self.event_step == 4:
+                if self.wild_battle_hp <= 0:
+                    self.event_step = 6
+                else:
+                    self.wild_pokemon_turn()
+            elif self.event_step == 5:
+                self.event_step = 3
+            elif self.event_step == 6:
+                self.event_step = 7
+                self.state = STATE_ROUTE_EVENT
+
+    def use_selected_move(self):
+        """Apply the chosen starter move during battle."""
+        move = STARTER_MOVES[self.starter_name][self.selected_move]
+        self.wild_battle_hp = max(0, self.wild_battle_hp - move["power"])
+        starter = self.starter_name.capitalize()
+        if self.wild_battle_hp == 0:
+            self.battle_message = f"{starter} used {move['name']}!\nWild Poochyena ran away!"
+            self.event_step = 6
+        else:
+            self.battle_message = f"{starter} used {move['name']}!\nWild Poochyena took damage!"
+            self.event_step = 4
+
+    def wild_pokemon_turn(self):
+        """Apply the wild Pokemon's response after the player attacks."""
+        self.player_battle_hp = max(0, self.player_battle_hp - 4)
+        self.battle_message = "Wild Poochyena used Tackle!\nChoose your next move."
+        self.event_step = 5
     
     def run(self):
         """Main game loop"""
@@ -672,6 +878,8 @@ class Game:
                         self.handle_building_input(event)
                     elif self.state == STATE_ROUTE_EVENT:
                         self.handle_route_event_input(event)
+                    elif self.state == STATE_BATTLE:
+                        self.handle_battle_input(event)
             
             # Draw based on current state
             if self.state == STATE_TITLE:
@@ -685,6 +893,8 @@ class Game:
                 self.draw_building_interior()
             elif self.state == STATE_ROUTE_EVENT:
                 self.draw_route_event()
+            elif self.state == STATE_BATTLE:
+                self.draw_battle_scene()
             
             pygame.display.flip()
             self.clock.tick(60)
