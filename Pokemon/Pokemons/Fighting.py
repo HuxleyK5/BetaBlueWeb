@@ -4,63 +4,70 @@ from random import randint
 
 class Machop(Fighting):
     def __init__(self):
-        super().__init__("Machop", 70, [
-            Move("Low Kick", "FIGHTING", 0),
-            Move("Leer", "NORMAL", 0),
-            Move("Focus Energy", "NORMAL", 0),
-            Move("Karate Chop", "FIGHTING", 50)
-        ], "./TVPoke/Pokemon/imgs/Machop.png")
+        moves = [
+            Move("Revenge", "FIGHTING", 60),
+            Move("Karate Chop", "FIGHTING", 50),
+            Move("Foresight", "NORMAL", 0),
+            Move("Seismic Toss", "FIGHTING", 0)
+        ]
+        super().__init__("Machop", 70, moves, "./TVPoke/Pokemon/imgs/Machop.png")
 
 class Machoke(Fighting):
     def __init__(self):
-        super().__init__("Machoke", 80, [
-            Move("Low Kick", "FIGHTING", 0),
-            Move("Leer", "NORMAL", 0),
-            Move("Focus Energy", "NORMAL", 0),
+        moves = [
+            Move("Revenge", "FIGHTING", 60),
+            Move("Karate Chop", "FIGHTING", 50),
+            Move("Foresight", "NORMAL", 0),
             Move("Seismic Toss", "FIGHTING", 0)
-        ], "./TVPoke/Pokemon/imgs/Machoke.png")
+        ]
+        super().__init__("Machoke", 80, moves, "./TVPoke/Pokemon/imgs/Machoke.png")
 
 class Machamp(Fighting):
     def __init__(self):
-        super().__init__("Machamp", 90, [
-            Move("Low Kick", "FIGHTING", 0),
-            Move("Leer", "NORMAL", 0),
-            Move("Focus Energy", "NORMAL", 0),
-            Move("Dynamic Punch", "FIGHTING", 100)
-        ], "./TVPoke/Pokemon/imgs/Machamp.png")
+        moves = [
+            Move("Revenge", "FIGHTING", 60),
+            Move("Karate Chop", "FIGHTING", 50),
+            Move("Foresight", "NORMAL", 0),
+            Move("Seismic Toss", "FIGHTING", 0)
+        ]
+        super().__init__("Machamp", 90, moves, "./TVPoke/Pokemon/imgs/Machamp.png")
 
 class Makuhita(Fighting):
     def __init__(self):
-        super().__init__("Makuhita", 72, [
-            Move("Tackle", "NORMAL", 40),
-            Move("Focus Energy", "NORMAL", 0),
-            Move("Sand Attack", "GROUND", 0),
-            Move("Arm Thrust", "FIGHTING", 15)
-        ], "./TVPoke/Pokemon/imgs/Makuhita.png")
+        moves = [
+            Move("Vital Throw", "FIGHTING", 70),
+            Move("Fake Out", "NORMAL", 40),
+            Move("Tackle", "NORMAL", 35),
+            Move("Knock Off", "DARK", 20)
+        ]
+        super().__init__("Makuhita", 72, moves, "./TVPoke/Pokemon/imgs/Makuhita.png")
 
 class Hariyama(Fighting):
     def __init__(self):
-        super().__init__("Hariyama", 144, [
-            Move("Tackle", "NORMAL", 40),
-            Move("Focus Energy", "NORMAL", 0),
-            Move("Sand Attack", "GROUND", 0),
-            Move("Heavy Slam", "STEEL", 0)
-        ], "./TVPoke/Pokemon/imgs/Hariyama.png")
+        moves = [
+            Move("Vital Throw", "FIGHTING", 70),
+            Move("Fake Out", "NORMAL", 40),
+            Move("Tackle", "NORMAL", 35),
+            Move("Knock Off", "DARK", 20)
+        ]
+        super().__init__("Hariyama", 144, moves, "./TVPoke/Pokemon/imgs/Hariyama.png")
 
 class Meditite(Fighting):
     def __init__(self):
-        super().__init__("Meditite", 30, [
-            Move("Bide", "NORMAL", 0),
-            Move("Focus Energy", "NORMAL", 0),
-            Move("Meditate", "PSYCHIC", 0),
-            Move("Vital Throw", "FIGHTING", 70)
-        ], "./TVPoke/Pokemon/imgs/Meditite.png")
+        moves = [
+            Move("Hidden Power", "NORMAL", 60),
+            Move("Confusion", "PSYCHIC", 50),
+            Move("Calm Mind", "PSYCHIC", 0),
+            Move("Mind Reader", "NORMAL", 0)
+        ]
+        super().__init__("Meditite", 30, moves, "./TVPoke/Pokemon/imgs/Meditite.png")
 
 class Medicham(Fighting):
     def __init__(self):
-        super().__init__("Medicham", 60, [
-            Move("Bide", "NORMAL", 0),
-            Move("Focus Energy", "NORMAL", 0),
-            Move("Meditate", "PSYCHIC", 0),
-            Move("High Jump Kick", "FIGHTING", 100)
-        ], "./TVPoke/Pokemon/imgs/Medicham.png")
+        moves = [
+            Move("ThunderPunch", "ELECTRIC", 75),
+            Move("Ice Punch", "ICE", 75),
+            Move("Fire Punch", "FIRE", 75),
+            Move("Hidden Power", "NORMAL", 60)
+        ]
+        super().__init__("Medicham", 60, moves, "./TVPoke/Pokemon/imgs/Medicham.png")
