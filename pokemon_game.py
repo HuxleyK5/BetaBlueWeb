@@ -82,6 +82,15 @@ TOWN_MAP = [
 SOLID_TILES = {TILE_TREE, TILE_WATER}
 STARTER_NAMES = ["treecko", "torchic", "mudkip"]
 EVENT_POKEMON = STARTER_NAMES + ["poochyena"]
+EVOLUTION_LEVELS = {
+    "treecko": (16, "grovyle"),
+    "grovyle": (36, "sceptile"),
+    "torchic": (16, "combusken"),
+    "combusken": (36, "blaziken"),
+    "mudkip": (16, "marshtomp"),
+    "marshtomp": (36, "swampert"),
+    "poochyena": (18, "mightyena"),
+}
 ROUTE_ASSIST_TILE = (10, 1)
 BUILDINGS = [
     {
@@ -160,6 +169,7 @@ class Game:
         self.event_step = 0
         self.starter_choice = 0
         self.starter_name = None
+        self.starter_level = 5
         self.professor_rescued = False
         self.current_building = None
 
@@ -526,7 +536,10 @@ class Game:
             pygame.draw.ellipse(self.screen, (161, 120, 76), (wild_rect.x + 3, wild_rect.bottom - 8, wild_rect.width - 6, 8))
             self.screen.blit(wild, wild_rect)
         wild_label = self.font_small.render("Wild Poochyena", True, OUTLINE)
+        wild_level = self.starter_level + 1
         self.screen.blit(wild_label, (430, 306))
+        wild_level_label = self.font_small.render(f"Lv.{wild_level}", True, OUTLINE)
+        self.screen.blit(wild_level_label, (430, 326))
 
         if self.event_step == 0:
             self.draw_dialog_box(["Professor Birch: Help! A wild Pokemon", "cornered me while I checked my notes!"])
@@ -536,7 +549,7 @@ class Game:
             if sprite:
                 rect = sprite.get_rect(midbottom=(318, 304))
                 self.screen.blit(sprite, rect)
-            self.draw_dialog_box([f"{starter}, I choose you!", f"{starter} drove the wild Pokemon away!"])
+            self.draw_dialog_box([f"{starter} Lv.{self.starter_level}, I choose you!", f"{starter} drove the wild Pokemon away!"])
         else:
             starter = self.starter_name.capitalize()
             self.draw_dialog_box(["Professor Birch: Thank you!", f"Keep {starter}. Your journey begins now."], "ENTER")
@@ -631,6 +644,7 @@ class Game:
                 self.starter_choice = (self.starter_choice + 1) % len(STARTER_NAMES)
             elif event.key == pygame.K_RETURN:
                 self.starter_name = STARTER_NAMES[self.starter_choice]
+                self.starter_level = 5
         elif event.key == pygame.K_RETURN:
             self.state = STATE_TOWN
             self.current_building = None
@@ -647,10 +661,25 @@ class Game:
             elif self.event_step == 1:
                 self.event_step = 2
             else:
+                self.handle_starter_level_up()
                 self.professor_rescued = True
                 self.state = STATE_TOWN
                 self.player_x, self.player_y = ROUTE_ASSIST_TILE
                 self.player_direction = "down"
+
+    def handle_starter_level_up(self):
+        """Grant one level after the route battle and evolve if threshold is reached."""
+        if not self.starter_name:
+            return
+        self.starter_level += 1
+        self.try_starter_evolution()
+
+    def try_starter_evolution(self):
+        while self.starter_name in EVOLUTION_LEVELS:
+            required_level, evolved_name = EVOLUTION_LEVELS[self.starter_name]
+            if self.starter_level < required_level:
+                return
+            self.starter_name = evolved_name
     
     def run(self):
         """Main game loop"""
