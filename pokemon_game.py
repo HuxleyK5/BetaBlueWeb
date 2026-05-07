@@ -5,6 +5,7 @@ A 2D handheld-inspired RPG with a title screen, name entry, and town exploration
 
 import pygame
 import sys
+import random
 from pathlib import Path
 
 # Initialize Pygame
@@ -100,22 +101,22 @@ EVOLUTION_LEVELS = {
 ROUTE_ASSIST_TILE = (10, 1)
 STARTER_MOVES = {
     "treecko": [
-        {"name": "Pound", "power": 6},
-        {"name": "Absorb", "power": 7},
-        {"name": "Quick Attack", "power": 5},
-        {"name": "Leer", "power": 3},
+        {"name": "Pound", "power": 6, "accuracy": 95},
+        {"name": "Absorb", "power": 7, "accuracy": 100, "drain": 0.5},
+        {"name": "Quick Attack", "power": 5, "accuracy": 100},
+        {"name": "Leer", "power": 3, "accuracy": 100},
     ],
     "torchic": [
-        {"name": "Scratch", "power": 6},
-        {"name": "Ember", "power": 8},
-        {"name": "Quick Attack", "power": 5},
-        {"name": "Growl", "power": 3},
+        {"name": "Scratch", "power": 6, "accuracy": 100},
+        {"name": "Ember", "power": 8, "accuracy": 95},
+        {"name": "Quick Attack", "power": 5, "accuracy": 100},
+        {"name": "Growl", "power": 3, "accuracy": 100},
     ],
     "mudkip": [
-        {"name": "Tackle", "power": 6},
-        {"name": "Water Gun", "power": 8},
-        {"name": "Mud-Slap", "power": 5},
-        {"name": "Growl", "power": 3},
+        {"name": "Tackle", "power": 6, "accuracy": 95},
+        {"name": "Water Gun", "power": 8, "accuracy": 95},
+        {"name": "Mud-Slap", "power": 5, "accuracy": 85},
+        {"name": "Growl", "power": 3, "accuracy": 100},
     ],
 }
 BUILDINGS = [
@@ -198,10 +199,13 @@ class Game:
         self.starter_level = 5
         self.professor_rescued = False
         self.current_building = None
+        self.player_max_hp = 22
+        self.wild_max_hp = 18
         self.player_battle_hp = 22
         self.wild_battle_hp = 18
         self.selected_move = 0
         self.battle_message = ""
+        self.floating_texts = []
 
     def load_pokemon_sprites(self):
         """Load small Pokemon sprites from the local asset folder for story events."""
@@ -572,11 +576,14 @@ class Game:
         )
         self.screen.blit(sprite, rect)
 
-    def draw_hp_bar(self, x, y, label, hp, max_hp):
+    def draw_hp_bar(self, x, y, label, level, hp, max_hp):
         panel = pygame.Rect(x, y, 190, 54)
         self.draw_gba_panel(panel)
         name_text = self.font_small.render(label, True, OUTLINE)
         self.screen.blit(name_text, (panel.x + 12, panel.y + 8))
+        level_text = self.font_small.render(f"Lv.{level}", True, OUTLINE)
+        level_rect = level_text.get_rect(topright=(panel.right - 12, panel.y + 8))
+        self.screen.blit(level_text, level_rect)
         pygame.draw.rect(self.screen, OUTLINE, (panel.x + 12, panel.y + 32, 142, 10), border_radius=4)
         fill_width = max(0, int(138 * hp / max_hp))
         hp_color = (74, 190, 98) if hp > max_hp // 2 else (242, 178, 66)
@@ -612,9 +619,35 @@ class Game:
         )
         self.screen.blit(battle_sprite, rect)
 
+    def add_floating_text(self, text, pos, color):
+        """Create a short-lived battle text popup that floats upward."""
+        self.floating_texts.append({
+            "text": text,
+            "x": pos[0],
+            "y": pos[1],
+            "color": color,
+            "timer": 45,
+        })
+
+    def update_floating_texts(self):
+        active = []
+        for item in self.floating_texts:
+            item["y"] -= 0.7
+            item["timer"] -= 1
+            if item["timer"] > 0:
+                active.append(item)
+        self.floating_texts = active
+
+    def draw_floating_texts(self):
+        for item in self.floating_texts:
+            text = self.font_small.render(item["text"], True, item["color"])
+            rect = text.get_rect(center=(int(item["x"]), int(item["y"])))
+            self.screen.blit(text, rect)
+
     def draw_battle_scene(self):
         """Draw a separate, more dimensional Pokemon-style battle screen."""
         starter = self.starter_name.capitalize()
+        self.update_floating_texts()
 
         self.screen.fill(SAPPHIRE_LIGHT)
         pygame.draw.rect(self.screen, (226, 247, 255), (0, 0, SCREEN_WIDTH, 92))
@@ -640,8 +673,9 @@ class Game:
         self.draw_battle_platform((238, 358), (260, 88), (121, 214, 126), (70, 159, 98))
         self.draw_battle_pokemon("poochyena", (560, 224), 86)
         self.draw_battle_pokemon(self.starter_name, (238, 342), 122)
-        self.draw_hp_bar(72, 104, starter, self.player_battle_hp, 22)
-        self.draw_hp_bar(526, 86, "Poochyena", self.wild_battle_hp, 18)
+        wild_level = self.starter_level + 1
+        self.draw_hp_bar(72, 104, starter, self.starter_level, self.player_battle_hp, self.player_max_hp)
+        self.draw_hp_bar(526, 86, "Poochyena", wild_level, self.wild_battle_hp, self.wild_max_hp)
 
         command_box = pygame.Rect(48, 410, SCREEN_WIDTH - 96, 138)
         self.draw_gba_panel(command_box)
@@ -653,13 +687,16 @@ class Game:
             for index, move in enumerate(moves):
                 col = index % 2
                 row = index // 2
-                move_rect = pygame.Rect(command_box.x + 300 + col * 170, command_box.y + 18 + row * 46, 150, 34)
+                move_rect = pygame.Rect(command_box.x + 300 + col * 170, command_box.y + 14 + row * 50, 150, 40)
                 selected = index == self.selected_move
                 color = (255, 248, 207) if selected else (233, 244, 255)
                 outline = TEXT_GOLD if selected else OUTLINE
                 self.draw_rounded_rect(move_rect, color, radius=7, outline_color=outline, outline_width=2)
                 move_text = self.font_small.render(move["name"], True, OUTLINE)
-                self.screen.blit(move_text, (move_rect.x + 12, move_rect.y + 8))
+                self.screen.blit(move_text, (move_rect.x + 10, move_rect.y + 4))
+                dmg_text = self.font_small.render(f"DMG {move['power']}", True, TEXT_BLUE)
+                dmg_rect = dmg_text.get_rect(right=move_rect.right - 10, bottom=move_rect.bottom - 3)
+                self.screen.blit(dmg_text, dmg_rect)
         else:
             lines = self.battle_message.split("\n")
             for index, line in enumerate(lines):
@@ -668,6 +705,7 @@ class Game:
             prompt = self.font_small.render("Press ENTER", True, TEXT_BLUE)
             prompt_rect = prompt.get_rect(right=command_box.right - 24, bottom=command_box.bottom - 16)
             self.screen.blit(prompt, prompt_rect)
+        self.draw_floating_texts()
 
     def draw_route_event(self):
         """Draw the rescue sequence on the northern route."""
@@ -758,8 +796,8 @@ class Game:
             if not self.professor_rescued:
                 self.state = STATE_ROUTE_EVENT
                 self.event_step = 0
-                self.player_battle_hp = 22
-                self.wild_battle_hp = 18
+                self.player_battle_hp = self.player_max_hp
+                self.wild_battle_hp = self.wild_max_hp
                 self.selected_move = 0
                 self.battle_message = ""
             return
@@ -868,19 +906,62 @@ class Game:
     def use_selected_move(self):
         """Apply the chosen starter move during battle."""
         move = STARTER_MOVES[self.starter_name][self.selected_move]
-        self.wild_battle_hp = max(0, self.wild_battle_hp - move["power"])
         starter = self.starter_name.capitalize()
+
+        accuracy = move.get("accuracy", 100)
+        if random.randint(1, 100) > accuracy:
+            self.battle_message = f"{starter} used {move['name']}!\nBut it missed!"
+            self.event_step = 4
+            return
+
+        wild_hp_before = self.wild_battle_hp
+        self.wild_battle_hp = max(0, self.wild_battle_hp - move["power"])
+        damage_dealt = wild_hp_before - self.wild_battle_hp
+        if damage_dealt > 0:
+            self.add_floating_text(f"-{damage_dealt} HP", (560, 170), (212, 52, 52))
+
+        drain_ratio = move.get("drain", 0)
+        drained_hp = 0
+        if drain_ratio > 0 and damage_dealt > 0:
+            drained_hp = max(1, int(damage_dealt * drain_ratio))
+            self.player_battle_hp = min(self.player_max_hp, self.player_battle_hp + drained_hp)
+            self.add_floating_text(f"+{drained_hp} HP", (238, 294), (46, 154, 80))
+
         if self.wild_battle_hp == 0:
-            self.battle_message = f"{starter} used {move['name']}!\nWild Poochyena ran away!"
+            if drained_hp > 0:
+                self.battle_message = (
+                    f"{starter} used {move['name']}!\n"
+                    f"{starter} drained {drained_hp} HP! Wild Poochyena ran away!"
+                )
+            else:
+                self.battle_message = f"{starter} used {move['name']}!\nWild Poochyena ran away!"
             self.event_step = 6
         else:
-            self.battle_message = f"{starter} used {move['name']}!\nWild Poochyena took damage!"
+            if drained_hp > 0:
+                self.battle_message = (
+                    f"{starter} used {move['name']}!\n"
+                    f"Wild Poochyena took damage! {starter} drained {drained_hp} HP!"
+                )
+            else:
+                self.battle_message = f"{starter} used {move['name']}!\nWild Poochyena took damage!"
             self.event_step = 4
 
     def wild_pokemon_turn(self):
         """Apply the wild Pokemon's response after the player attacks."""
-        self.player_battle_hp = max(0, self.player_battle_hp - 4)
-        self.battle_message = "Wild Poochyena used Tackle!\nChoose your next move."
+        wild_move_name = "Tackle"
+        wild_move_power = 4
+        wild_move_accuracy = 90
+        if random.randint(1, 100) > wild_move_accuracy:
+            self.battle_message = f"Wild Poochyena used {wild_move_name}!\nBut it missed! Choose your next move."
+            self.event_step = 5
+            return
+
+        hp_before = self.player_battle_hp
+        self.player_battle_hp = max(0, self.player_battle_hp - wild_move_power)
+        damage_taken = hp_before - self.player_battle_hp
+        if damage_taken > 0:
+            self.add_floating_text(f"-{damage_taken} HP", (238, 294), (212, 52, 52))
+        self.battle_message = f"Wild Poochyena used {wild_move_name}!\nChoose your next move."
         self.event_step = 5
     def handle_starter_level_up(self):
         """Grant one level after the route battle and evolve if threshold is reached."""
