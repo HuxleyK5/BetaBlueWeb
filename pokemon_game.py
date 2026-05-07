@@ -5,7 +5,11 @@ A 2D handheld-inspired RPG with a title screen, name entry, and town exploration
 
 import pygame
 import sys
+import os
 from pathlib import Path
+
+# Ask SDL to place the game window in the center of the monitor.
+os.environ.setdefault("SDL_VIDEO_CENTERED", "1")
 
 # Initialize Pygame
 pygame.init()
@@ -16,6 +20,10 @@ SCREEN_HEIGHT = 600
 TILE_SIZE = 32
 MAP_WIDTH = 20
 MAP_HEIGHT = 15
+MAP_PIXEL_WIDTH = MAP_WIDTH * TILE_SIZE
+MAP_PIXEL_HEIGHT = MAP_HEIGHT * TILE_SIZE
+MAP_OFFSET_X = (SCREEN_WIDTH - MAP_PIXEL_WIDTH) // 2
+MAP_OFFSET_Y = (SCREEN_HEIGHT - MAP_PIXEL_HEIGHT) // 2
 
 # Colors - soft, vibrant handheld palette
 GRASS = (102, 204, 116)
@@ -57,6 +65,7 @@ STATE_TOWN = "town"
 STATE_BUILDING = "building"
 STATE_ROUTE_EVENT = "route_event"
 STATE_BATTLE = "battle"
+STATE_NEXT_TOWN = "next_town"
 
 # Map tiles
 TILE_GRASS = 0
@@ -162,6 +171,166 @@ BUILDING_TILES = {
     for tile_y in range(building["y"], building["y"] + building["h"])
     for tile_x in range(building["x"], building["x"] + building["w"])
 }
+REGION_STOPS = [
+    {
+        "name": "Oldale Town",
+        "kind": "town",
+        "subtitle": "A quiet stop north of Bluebell.",
+        "lines": ["A clerk shows you the Pokemon Center.", "A rival waits near Route 103."],
+    },
+    {
+        "name": "Route 103",
+        "kind": "route",
+        "subtitle": "Rival Battle",
+        "lines": ["Your rival tests your new partner.", "After the battle, head home to report in."],
+    },
+    {
+        "name": "Route 102",
+        "kind": "route",
+        "subtitle": "Trainer Road",
+        "lines": ["Young trainers line the flowered path.", "The road bends west toward Petalburg."],
+    },
+    {
+        "name": "Petalburg City",
+        "kind": "town",
+        "subtitle": "Your father's gym town.",
+        "lines": ["The Gym Leader is busy training challengers.", "A new friend learns how to catch Pokemon."],
+    },
+    {
+        "name": "Petalburg Woods",
+        "kind": "forest",
+        "subtitle": "A shady forest route.",
+        "lines": ["A researcher is cornered by Team Tide.", "You chase the troublemakers toward Rustboro."],
+    },
+    {
+        "name": "Rustboro City",
+        "kind": "gym",
+        "subtitle": "Rock Gym Challenge",
+        "badge": "Stone Badge",
+        "lines": ["The first gym tests sturdy defenses.", "Win here to prove your journey has begun."],
+    },
+    {
+        "name": "Rusturf Tunnel",
+        "kind": "cave",
+        "subtitle": "Rescue Mission",
+        "lines": ["Team Tide stole important goods.", "Follow them through the tunnel and recover the package."],
+    },
+    {
+        "name": "Dewford Town",
+        "kind": "gym",
+        "subtitle": "Fighting Gym Challenge",
+        "badge": "Knuckle Badge",
+        "lines": ["A boat carries you over the southern sea.", "The island gym waits beyond the beach."],
+    },
+    {
+        "name": "Granite Cave",
+        "kind": "cave",
+        "subtitle": "Letter Delivery",
+        "lines": ["Deep in the cave, a quiet trainer studies rare stones.", "Deliver the letter before sailing onward."],
+    },
+    {
+        "name": "Slateport City",
+        "kind": "town",
+        "subtitle": "Harbor Story",
+        "lines": ["The museum is packed with Team Tide grunts.", "Protect the sea charts and head north."],
+    },
+    {
+        "name": "Mauville City",
+        "kind": "gym",
+        "subtitle": "Electric Gym Challenge",
+        "badge": "Dynamo Badge",
+        "lines": ["A bright city hums with power.", "The gym is full of switches and electric traps."],
+    },
+    {
+        "name": "Verdanturf Town",
+        "kind": "town",
+        "subtitle": "Quiet Valley",
+        "lines": ["Flowers sway in the clean mountain air.", "The tunnel project reconnects old friends."],
+    },
+    {
+        "name": "Fiery Path",
+        "kind": "route",
+        "subtitle": "Ash Road",
+        "lines": ["The road climbs through smoke and warm stone.", "Team Tide is searching near Meteor Falls."],
+    },
+    {
+        "name": "Meteor Falls",
+        "kind": "cave",
+        "subtitle": "Villain Plot",
+        "lines": ["A stolen meteorite points toward the volcano.", "Follow the trail up Mt. Chimney."],
+    },
+    {
+        "name": "Lavaridge Town",
+        "kind": "gym",
+        "subtitle": "Fire Gym Challenge",
+        "badge": "Heat Badge",
+        "lines": ["Hot springs steam behind the ridge.", "A heated gym battle waits inside."],
+    },
+    {
+        "name": "Petalburg Gym",
+        "kind": "gym",
+        "subtitle": "Family Gym Challenge",
+        "badge": "Balance Badge",
+        "lines": ["With four badges, your father accepts your challenge.", "This battle measures how far you have come."],
+    },
+    {
+        "name": "Weather Institute",
+        "kind": "route",
+        "subtitle": "Rain Route Rescue",
+        "lines": ["Tall grass and bridges stretch through heavy rain.", "Team Tide storms the Weather Institute."],
+    },
+    {
+        "name": "Fortree City",
+        "kind": "gym",
+        "subtitle": "Flying Gym Challenge",
+        "badge": "Feather Badge",
+        "lines": ["Treehouses rise above the forest canopy.", "The gym turns with wind and clever paths."],
+    },
+    {
+        "name": "Lilycove City",
+        "kind": "town",
+        "subtitle": "Hideout Lead",
+        "lines": ["The coast opens into a busy seaside city.", "Team Tide's hideout blocks the eastern water."],
+    },
+    {
+        "name": "Mt. Pyre",
+        "kind": "cave",
+        "subtitle": "Ancient Orb Story",
+        "lines": ["A sacred mountain reveals the villains' plan.", "The sea begins to churn with old power."],
+    },
+    {
+        "name": "Mossdeep City",
+        "kind": "gym",
+        "subtitle": "Psychic Gym Challenge",
+        "badge": "Mind Badge",
+        "lines": ["The space center watches the stars.", "Twin leaders challenge you with a double battle."],
+    },
+    {
+        "name": "Seafloor Cavern",
+        "kind": "cave",
+        "subtitle": "Deep Sea Crisis",
+        "lines": ["Dive beneath the waves to find Team Tide.", "An ancient Pokemon wakes below the sea."],
+    },
+    {
+        "name": "Sootopolis City",
+        "kind": "gym",
+        "subtitle": "Water Gym Challenge",
+        "badge": "Rain Badge",
+        "lines": ["A crater city surrounds a shining lake.", "Calm the crisis, then face the final gym."],
+    },
+    {
+        "name": "Victory Road",
+        "kind": "cave",
+        "subtitle": "Final Trial",
+        "lines": ["Every badge opens the path to the League.", "Strong trainers wait in the cavern ahead."],
+    },
+    {
+        "name": "Pokemon League",
+        "kind": "league",
+        "subtitle": "Champion Challenge",
+        "lines": ["The Elite Four stand between you and the title.", "Your Sapphire-style journey reaches its finale."],
+    },
+]
 
 
 class Game:
@@ -197,6 +366,9 @@ class Game:
         self.starter_name = None
         self.starter_level = 5
         self.professor_rescued = False
+        self.trail_unlocked = False
+        self.region_index = 0
+        self.badges = []
         self.current_building = None
         self.player_battle_hp = 22
         self.wild_battle_hp = 18
@@ -254,8 +426,8 @@ class Game:
     
     def draw_tile(self, x, y, tile_type):
         """Draw a single tile"""
-        pixel_x = x * TILE_SIZE
-        pixel_y = y * TILE_SIZE
+        pixel_x = MAP_OFFSET_X + x * TILE_SIZE
+        pixel_y = MAP_OFFSET_Y + y * TILE_SIZE
         
         if tile_type == TILE_GRASS:
             color = GRASS if (x + y) % 2 == 0 else GRASS_LIGHT
@@ -311,8 +483,8 @@ class Game:
 
     def draw_building(self, building):
         """Draw one enterable building as a single readable landmark."""
-        x = building["x"] * TILE_SIZE
-        y = building["y"] * TILE_SIZE
+        x = MAP_OFFSET_X + building["x"] * TILE_SIZE
+        y = MAP_OFFSET_Y + building["y"] * TILE_SIZE
         width = building["w"] * TILE_SIZE
         height = building["h"] * TILE_SIZE
         pygame.draw.ellipse(self.screen, (52, 128, 92), (x + 8, y + height - 8, width - 16, 14))
@@ -334,8 +506,8 @@ class Game:
             [(x + 5, y + 34), (x + width // 2, y + 7), (x + width - 5, y + 34)],
         )
         pygame.draw.line(self.screen, BUILDING_ROOF_DARK, (x + 16, y + 36), (x + width - 16, y + 36), 4)
-        door_x = building["door"][0] * TILE_SIZE + 6
-        door_y = building["door"][1] * TILE_SIZE - 30
+        door_x = MAP_OFFSET_X + building["door"][0] * TILE_SIZE + 6
+        door_y = MAP_OFFSET_Y + building["door"][1] * TILE_SIZE - 30
         pygame.draw.rect(self.screen, (126, 84, 58), (door_x, door_y, 20, 34), border_radius=5)
         pygame.draw.circle(self.screen, TEXT_GOLD, (door_x + 15, door_y + 18), 2)
         pygame.draw.rect(self.screen, (173, 225, 250), (x + 20, y + 56, 20, 16), border_radius=4)
@@ -360,8 +532,8 @@ class Game:
     
     def draw_player(self):
         """Draw the player character"""
-        pixel_x = self.player_x * TILE_SIZE
-        pixel_y = self.player_y * TILE_SIZE
+        pixel_x = MAP_OFFSET_X + self.player_x * TILE_SIZE
+        pixel_y = MAP_OFFSET_Y + self.player_y * TILE_SIZE
         
         # Animation offset
         anim_offset = 0
@@ -501,7 +673,7 @@ class Game:
         for building in BUILDINGS:
             self.draw_building(building)
 
-        route_sign = pygame.Rect(348, 50, 104, 32)
+        route_sign = pygame.Rect(MAP_OFFSET_X + 348, MAP_OFFSET_Y + 50, 104, 32)
         self.draw_gba_panel(route_sign, (255, 250, 217))
         sign_text = self.font_small.render("ROUTE 101", True, OUTLINE)
         sign_rect = sign_text.get_rect(center=route_sign.center)
@@ -515,15 +687,17 @@ class Game:
             self.draw_dialog_box([f"Enter {building['name']}?", "Press ENTER to go inside."], "ENTER")
         elif self.player_at_route_assist() and not self.professor_rescued:
             self.draw_dialog_box(["You hear the professor shouting up ahead!", "Press ENTER to enter the north trail."], "ENTER")
+        elif self.player_at_route_assist() and self.trail_unlocked:
+            self.draw_dialog_box(["The north trail leads to the next town.", "Press ENTER to continue."], "ENTER")
         elif self.player_at_route_assist() and self.professor_rescued:
             starter = self.starter_name.capitalize() if self.starter_name else "starter"
-            self.draw_dialog_box([f"The northern route is calm again.", f"{starter} waits for the next challenge."], "ENTER")
+            self.draw_dialog_box([f"The northern route is calm again.", f"Visit the lab with {starter} first."], "ENTER")
         
         # Draw player name above player
         if self.player_name:
             name_label = self.font_small.render(self.player_name, True, TEXT_WHITE)
-            label_x = self.player_x * TILE_SIZE + TILE_SIZE // 2
-            label_y = self.player_y * TILE_SIZE - 5
+            label_x = MAP_OFFSET_X + self.player_x * TILE_SIZE + TILE_SIZE // 2
+            label_y = MAP_OFFSET_Y + self.player_y * TILE_SIZE - 5
             label_rect = name_label.get_rect(center=(label_x, label_y))
             
             # Background for name
@@ -552,13 +726,88 @@ class Game:
                 self.draw_dialog_box(["Professor Birch rushed toward the north trail.", "His starter bag is missing from the lab!"], "ESC to leave")
             else:
                 starter = self.starter_name.capitalize() if self.starter_name else "starter"
-                self.draw_dialog_box([f"{starter}'s Pokeball is registered to you.", "Professor Birch is safely back at work."], "ESC to leave")
+                self.draw_dialog_box([f"Professor Birch: Great work with {starter}!", "The north trail to the next town is open."], "ESC to leave")
         else:
             pygame.draw.rect(self.screen, (224, 174, 111), (134, 166, 170, 50), border_radius=8)
             pygame.draw.rect(self.screen, OUTLINE, (134, 166, 170, 50), 3, border_radius=8)
             pygame.draw.rect(self.screen, (126, 84, 58), (506, 150, 92, 130), border_radius=8)
             pygame.draw.rect(self.screen, OUTLINE, (506, 150, 92, 130), 3, border_radius=8)
             self.draw_dialog_box(building["message"], "ESC to leave")
+
+    def draw_next_town(self):
+        """Draw the next chapter reached from the north trail."""
+        stop = REGION_STOPS[self.region_index]
+        kind = stop["kind"]
+        sky = {
+            "town": (128, 206, 155),
+            "route": (132, 212, 145),
+            "forest": (84, 164, 112),
+            "cave": (134, 127, 128),
+            "gym": (169, 204, 232),
+            "league": (180, 198, 230),
+        }.get(kind, (128, 206, 155))
+        self.screen.fill(sky)
+
+        if kind == "cave":
+            pygame.draw.rect(self.screen, (89, 82, 84), (0, 0, SCREEN_WIDTH, SCREEN_HEIGHT))
+            for x in range(40, SCREEN_WIDTH, 110):
+                pygame.draw.polygon(self.screen, (118, 109, 111), [(x, 0), (x + 48, 0), (x + 20, 74)])
+            pygame.draw.ellipse(self.screen, (171, 156, 133), (94, 350, 612, 82))
+        else:
+            pygame.draw.rect(self.screen, (111, 190, 137), (0, 0, SCREEN_WIDTH, 140))
+            pygame.draw.rect(self.screen, PATH, (0, 282, SCREEN_WIDTH, 72), border_radius=18)
+            pygame.draw.rect(self.screen, PATH, (360, 0, 82, SCREEN_HEIGHT), border_radius=18)
+            for x in range(44, SCREEN_WIDTH, 92):
+                pygame.draw.circle(self.screen, TREE_DARK, (x, 92), 28)
+                pygame.draw.circle(self.screen, TREE, (x + 8, 84), 21)
+
+        if kind == "forest":
+            for x in range(18, SCREEN_WIDTH, 58):
+                pygame.draw.circle(self.screen, TREE_DARK, (x, 230), 30)
+                pygame.draw.circle(self.screen, TREE, (x + 8, 220), 22)
+        elif kind == "gym":
+            self.draw_rounded_rect(
+                pygame.Rect(292, 288, 216, 162),
+                BUILDING,
+                radius=12,
+                outline_color=OUTLINE,
+                outline_width=5,
+            )
+            pygame.draw.polygon(self.screen, OUTLINE, [(268, 300), (400, 214), (532, 300)])
+            pygame.draw.polygon(self.screen, BUILDING_ROOF, [(286, 296), (400, 234), (514, 296)])
+            gym_label = self.font_medium.render("GYM", True, TEXT_BLUE)
+            self.screen.blit(gym_label, gym_label.get_rect(center=(400, 358)))
+            pygame.draw.rect(self.screen, (126, 84, 58), (378, 398, 44, 52), border_radius=6)
+        elif kind == "town" or kind == "league":
+            roof = TEXT_GOLD if kind == "league" else (226, 102, 102)
+            self.draw_rounded_rect(pygame.Rect(112, 346, 148, 104), BUILDING, radius=12, outline_color=OUTLINE, outline_width=4)
+            pygame.draw.polygon(self.screen, OUTLINE, [(94, 352), (186, 288), (278, 352)])
+            pygame.draw.polygon(self.screen, roof, [(108, 348), (186, 302), (264, 348)])
+            pygame.draw.rect(self.screen, (126, 84, 58), (172, 396, 28, 54), border_radius=6)
+            self.draw_rounded_rect(pygame.Rect(536, 330, 152, 116), BUILDING, radius=12, outline_color=OUTLINE, outline_width=4)
+            pygame.draw.polygon(self.screen, OUTLINE, [(518, 336), (612, 274), (706, 336)])
+            pygame.draw.polygon(self.screen, BUILDING_ROOF, [(532, 332), (612, 288), (692, 332)])
+
+        title_panel = pygame.Rect(SCREEN_WIDTH // 2 - 190, 156, 380, 82)
+        self.draw_gba_panel(title_panel, (255, 250, 217))
+        title = self.font_large.render(stop["name"], True, OUTLINE)
+        subtitle = self.font_small.render(stop["subtitle"], True, TEXT_BLUE)
+        self.screen.blit(title, title.get_rect(center=(SCREEN_WIDTH // 2, 182)))
+        self.screen.blit(subtitle, subtitle.get_rect(center=(SCREEN_WIDTH // 2, 214)))
+
+        badge_text = f"Badges: {len(self.badges)}/8"
+        badge_label = self.font_small.render(badge_text, True, TEXT_WHITE)
+        badge_rect = badge_label.get_rect(topright=(SCREEN_WIDTH - 34, 24))
+        pygame.draw.rect(self.screen, OUTLINE, badge_rect.inflate(12, 8), border_radius=5)
+        self.screen.blit(badge_label, badge_rect)
+
+        if stop.get("badge") and stop["badge"] not in self.badges:
+            prompt = f"ENTER to win the {stop['badge']}"
+        elif self.region_index == len(REGION_STOPS) - 1:
+            prompt = "ESC to return"
+        else:
+            prompt = "ENTER to continue"
+        self.draw_dialog_box(stop["lines"], prompt)
 
     def draw_sprite_with_shadow(self, name, midbottom):
         sprite = self.pokemon_sprites.get(name)
@@ -762,6 +1011,8 @@ class Game:
                 self.wild_battle_hp = 18
                 self.selected_move = 0
                 self.battle_message = ""
+            elif self.trail_unlocked:
+                self.state = STATE_NEXT_TOWN
             return
 
         new_x, new_y = self.player_x, self.player_y
@@ -793,6 +1044,8 @@ class Game:
     def handle_building_input(self, event):
         """Handle homes and lab interactions."""
         if event.key == pygame.K_ESCAPE:
+            if self.current_building and self.current_building["kind"] == "lab" and self.professor_rescued:
+                self.trail_unlocked = True
             self.state = STATE_TOWN
             self.current_building = None
             return
@@ -806,8 +1059,27 @@ class Game:
                 self.starter_name = STARTER_NAMES[self.starter_choice]
                 self.starter_level = 5
         elif event.key == pygame.K_RETURN:
+            if self.current_building and self.current_building["kind"] == "lab" and self.professor_rescued:
+                self.trail_unlocked = True
             self.state = STATE_TOWN
             self.current_building = None
+
+    def handle_next_town_input(self, event):
+        """Advance through the chapter route or return to Bluebell."""
+        if event.key == pygame.K_ESCAPE:
+            self.state = STATE_TOWN
+            self.player_x, self.player_y = ROUTE_ASSIST_TILE
+            self.player_direction = "down"
+            return
+
+        if event.key == pygame.K_RETURN:
+            stop = REGION_STOPS[self.region_index]
+            badge = stop.get("badge")
+            if badge and badge not in self.badges:
+                self.badges.append(badge)
+                self.handle_starter_level_up()
+            if self.region_index < len(REGION_STOPS) - 1:
+                self.region_index += 1
 
     def handle_route_event_input(self, event):
         """Advance the northern route rescue event."""
@@ -834,8 +1106,9 @@ class Game:
             else:
                 self.handle_starter_level_up()
                 self.professor_rescued = True
-                self.state = STATE_TOWN
-                self.player_x, self.player_y = ROUTE_ASSIST_TILE
+                self.current_building = next(building for building in BUILDINGS if building["id"] == "lab")
+                self.state = STATE_BUILDING
+                self.player_x, self.player_y = self.current_building["door"]
                 self.player_direction = "down"
 
     def handle_battle_input(self, event):
@@ -918,6 +1191,8 @@ class Game:
                         self.handle_route_event_input(event)
                     elif self.state == STATE_BATTLE:
                         self.handle_battle_input(event)
+                    elif self.state == STATE_NEXT_TOWN:
+                        self.handle_next_town_input(event)
             
             # Draw based on current state
             if self.state == STATE_TITLE:
@@ -933,6 +1208,8 @@ class Game:
                 self.draw_route_event()
             elif self.state == STATE_BATTLE:
                 self.draw_battle_scene()
+            elif self.state == STATE_NEXT_TOWN:
+                self.draw_next_town()
             
             pygame.display.flip()
             self.clock.tick(60)
