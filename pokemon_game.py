@@ -19,7 +19,7 @@ pygame.init()
 # Constants
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 600
-TILE_SIZE = 32
+TILE_SIZE = 40
 MAP_WIDTH = 20
 MAP_HEIGHT = 15
 MAP_PIXEL_WIDTH = MAP_WIDTH * TILE_SIZE
@@ -68,6 +68,9 @@ STATE_BUILDING = "building"
 STATE_ROUTE_EVENT = "route_event"
 STATE_BATTLE = "battle"
 STATE_NEXT_TOWN = "world_map"
+STATE_ROUTE_EXPLORE = "route_explore"
+STATE_WILD_ENCOUNTER = "wild_encounter"
+STATE_TEST_REGION_PICKER = "test_region_picker"
 
 # Map tiles
 TILE_GRASS = 0
@@ -75,6 +78,7 @@ TILE_PATH = 1
 TILE_BUILDING = 2
 TILE_TREE = 3
 TILE_WATER = 4
+TILE_TALL_GRASS = 5
 
 # Create the town map (20x15)
 TOWN_MAP = [
@@ -98,20 +102,8 @@ TOWN_MAP = [
 # Solid tiles that player cannot walk through
 SOLID_TILES = {TILE_TREE, TILE_WATER}
 STARTER_NAMES = ["treecko", "torchic", "mudkip"]
-EVENT_POKEMON = STARTER_NAMES + ["poochyena"]
-POKEDEX_FALLBACK = {
-    "treecko",
-    "grovyle",
-    "sceptile",
-    "torchic",
-    "combusken",
-    "blaziken",
-    "mudkip",
-    "marshtomp",
-    "swampert",
-    "poochyena",
-    "mightyena",
-}
+WILD_POKEMON = ["poochyena", "zigzagoon", "wurmple", "taillow", "shroomish", "wingull", "geodude", "zubat", "makuhita", "tentacool"]
+EVENT_POKEMON = STARTER_NAMES + WILD_POKEMON
 EVOLUTION_LEVELS = {
     "treecko": (16, "grovyle"),
     "grovyle": (36, "sceptile"),
@@ -502,7 +494,9 @@ def load_species_profiles():
 
 class Game:
     def __init__(self):
-        self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+        self.fullscreen = True
+        self.window = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+        self.screen = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
         pygame.display.set_caption("Beta Blue Version")
         self.clock = pygame.time.Clock()
         
@@ -557,6 +551,28 @@ class Game:
         self.pokedex_sprites = self.load_pokedex_sprites()
         self.species_profiles = load_species_profiles()
         self.found_sources = set()
+        self.route_map = None
+        self.route_player_x = 10
+        self.route_player_y = 13
+        self.wild_encounter_name = None
+        self.wild_encounter_level = 2
+        self.previous_state = STATE_ROUTE_EXPLORE
+        self.test_region_index = 0
+        self.test_region_scroll = 0
+
+    def toggle_fullscreen(self):
+        """Switch between fullscreen and a normal 800x600 window."""
+        self.fullscreen = not self.fullscreen
+        if self.fullscreen:
+            self.window = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+        else:
+            self.window = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+
+    def present_screen(self):
+        """Scale the fixed game canvas to the current window."""
+        window_width, window_height = self.window.get_size()
+        pygame.transform.scale(self.screen, (window_width, window_height), self.window)
+        pygame.display.flip()
 
     def load_pokemon_sprites(self):
         """Load small Pokemon sprites from the local asset folder for story events."""
@@ -708,6 +724,21 @@ class Game:
             wave_shift = (pygame.time.get_ticks() // 250 + x + y) % 4
             pygame.draw.line(self.screen, WATER_LIGHT, (pixel_x + 4 + wave_shift, pixel_y + 9), (pixel_x + 15 + wave_shift, pixel_y + 9), 2)
             pygame.draw.line(self.screen, WATER_LIGHT, (pixel_x + 15 - wave_shift, pixel_y + 22), (pixel_x + 28 - wave_shift, pixel_y + 22), 2)
+
+        elif tile_type == TILE_TALL_GRASS:
+            pygame.draw.rect(self.screen, GRASS, (pixel_x, pixel_y, TILE_SIZE, TILE_SIZE))
+            pygame.draw.rect(self.screen, (78, 176, 94), (pixel_x, pixel_y, TILE_SIZE, TILE_SIZE), 1)
+            for blade_x in range(5, TILE_SIZE, 7):
+                sway = ((pygame.time.get_ticks() // 240) + x + blade_x) % 3
+                pygame.draw.line(
+                    self.screen,
+                    GRASS_DARK,
+                    (pixel_x + blade_x, pixel_y + 26),
+                    (pixel_x + blade_x + sway - 1, pixel_y + 11),
+                    3,
+                )
+            if (x * 7 + y * 5) % 6 == 0:
+                pygame.draw.circle(self.screen, FLOWER_YELLOW, (pixel_x + 24, pixel_y + 10), 2)
 
     def draw_building(self, building):
         """Draw one enterable building as a single readable landmark."""
@@ -981,8 +1012,12 @@ class Game:
     
     def draw_player(self):
         """Draw the player character"""
-        pixel_x = MAP_OFFSET_X + self.player_x * TILE_SIZE
-        pixel_y = MAP_OFFSET_Y + self.player_y * TILE_SIZE
+        self.draw_player_at(self.player_x, self.player_y)
+
+    def draw_player_at(self, tile_x, tile_y):
+        """Draw the player character at a tile position."""
+        pixel_x = MAP_OFFSET_X + tile_x * TILE_SIZE
+        pixel_y = MAP_OFFSET_Y + tile_y * TILE_SIZE
         
         # Animation offset
         anim_offset = 0
@@ -1067,11 +1102,59 @@ class Game:
             start_text = self.font_large.render("PRESS START", True, TEXT_WHITE)
             start_rect = start_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 82))
             self.screen.blit(start_text, start_rect)
+
+        test_text = self.font_medium.render("Press T for Test Run", True, TEXT_GOLD)
+        test_rect = test_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 132))
+        self.screen.blit(test_text, test_rect)
         
         # Credits
-        credits_text = self.font_small.render("Use Arrow Keys to Move", True, (238, 251, 255))
+        credits_text = self.font_small.render("Use Arrow Keys to Move  |  F11 Toggle Fullscreen", True, (238, 251, 255))
         credits_rect = credits_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT - 40))
         self.screen.blit(credits_text, credits_rect)
+
+    def draw_test_region_picker(self):
+        """Draw a developer menu for starting at any built region stop."""
+        self.screen.fill(SAPPHIRE_DEEP)
+        pygame.draw.rect(self.screen, (74, 151, 171), (0, 0, SCREEN_WIDTH, SCREEN_HEIGHT))
+        pygame.draw.ellipse(self.screen, (112, 199, 138), (-86, 118, 520, 430))
+        pygame.draw.ellipse(self.screen, (104, 189, 128), (364, 70, 500, 470))
+
+        panel = pygame.Rect(92, 54, SCREEN_WIDTH - 184, SCREEN_HEIGHT - 108)
+        self.draw_gba_panel(panel, (255, 250, 217))
+        title = self.font_large.render("Test Run Start", True, OUTLINE)
+        self.screen.blit(title, (panel.x + 28, panel.y + 22))
+        subtitle = self.font_small.render("Pick any made region stop. ENTER jumps there, ESC returns.", True, TEXT_BLUE)
+        self.screen.blit(subtitle, (panel.x + 30, panel.y + 64))
+
+        visible_rows = 12
+        if self.test_region_index < self.test_region_scroll:
+            self.test_region_scroll = self.test_region_index
+        elif self.test_region_index >= self.test_region_scroll + visible_rows:
+            self.test_region_scroll = self.test_region_index - visible_rows + 1
+
+        list_top = panel.y + 100
+        for row in range(visible_rows):
+            index = self.test_region_scroll + row
+            if index >= len(REGION_STOPS):
+                break
+            stop = REGION_STOPS[index]
+            item_rect = pygame.Rect(panel.x + 28, list_top + row * 32, panel.width - 56, 28)
+            selected = index == self.test_region_index
+            if selected:
+                pygame.draw.rect(self.screen, TEXT_GOLD, item_rect, border_radius=5)
+                pygame.draw.rect(self.screen, OUTLINE, item_rect, 2, border_radius=5)
+            number = self.font_small.render(f"{index + 1:02}", True, TEXT_BLUE if not selected else OUTLINE)
+            kind = self.font_small.render(stop["kind"].upper(), True, TEXT_BLUE if not selected else OUTLINE)
+            name = self.font_small.render(stop["name"], True, OUTLINE)
+            subtitle_text = self.font_small.render(stop["subtitle"], True, TEXT_BLUE if not selected else OUTLINE)
+            self.screen.blit(number, (item_rect.x + 10, item_rect.y + 6))
+            self.screen.blit(kind, (item_rect.x + 58, item_rect.y + 6))
+            self.screen.blit(name, (item_rect.x + 154, item_rect.y + 6))
+            self.screen.blit(subtitle_text, (item_rect.x + 350, item_rect.y + 6))
+
+        footer = self.font_small.render("UP/DOWN: choose  PAGE UP/DOWN: jump  ENTER: start testing", True, TEXT_BLUE)
+        footer_rect = footer.get_rect(center=(SCREEN_WIDTH // 2, panel.bottom - 26))
+        self.screen.blit(footer, footer_rect)
     
     def draw_name_entry_screen(self):
         """Draw the name entry screen"""
@@ -1267,6 +1350,104 @@ class Game:
         prompt_text = self.font_small.render(prompt, True, TEXT_BLUE)
         prompt_rect = prompt_text.get_rect(right=title_panel.right - 24, bottom=title_panel.bottom - 14)
         self.screen.blit(prompt_text, prompt_rect)
+
+    def start_route_exploration(self, entry_side="south"):
+        """Build and enter a walkable route map for the selected region stop."""
+        self.route_map = self.build_route_map(REGION_STOPS[self.region_index])
+        entry_positions = {
+            "north": (10, 1, "down"),
+            "south": (10, 13, "up"),
+            "west": (1, 7, "right"),
+            "east": (18, 7, "left"),
+        }
+        self.route_player_x, self.route_player_y, self.player_direction = entry_positions.get(entry_side, entry_positions["south"])
+        self.state = STATE_ROUTE_EXPLORE
+
+    def build_route_map(self, stop):
+        """Create a compact route with paths, tall grass, and edge exits."""
+        route_map = [[TILE_GRASS for _ in range(MAP_WIDTH)] for _ in range(MAP_HEIGHT)]
+        for y in range(MAP_HEIGHT):
+            for x in range(MAP_WIDTH):
+                if x == 0 or x == MAP_WIDTH - 1 or y == 0 or y == MAP_HEIGHT - 1:
+                    route_map[y][x] = TILE_TREE
+
+        for x in range(1, MAP_WIDTH - 1):
+            route_map[7][x] = TILE_PATH
+        for y in range(1, MAP_HEIGHT - 1):
+            route_map[y][10] = TILE_PATH
+
+        for y in range(2, 6):
+            for x in range(2, 8):
+                route_map[y][x] = TILE_TALL_GRASS
+        for y in range(9, 13):
+            for x in range(12, 18):
+                route_map[y][x] = TILE_TALL_GRASS
+        if stop["kind"] == "forest":
+            for y in range(2, 13):
+                if y != 7:
+                    route_map[y][4] = TILE_TREE
+                    route_map[y][15] = TILE_TREE
+        elif stop["kind"] == "cave":
+            for y in range(2, 13):
+                for x in range(2, 18):
+                    if route_map[y][x] == TILE_GRASS:
+                        route_map[y][x] = TILE_TALL_GRASS if (x + y) % 4 == 0 else TILE_PATH
+
+        for side, opening in {"north": (10, 0), "south": (10, 14), "west": (0, 7), "east": (19, 7)}.items():
+            if self.get_region_neighbor_for_side(side) is not None:
+                open_x, open_y = opening
+                route_map[open_y][open_x] = TILE_PATH
+        return route_map
+
+    def get_region_neighbor_for_side(self, side):
+        key_for_side = {
+            "north": pygame.K_UP,
+            "south": pygame.K_DOWN,
+            "west": pygame.K_LEFT,
+            "east": pygame.K_RIGHT,
+        }[side]
+        return self.get_region_neighbor_for_key(key_for_side)
+
+    def is_route_solid(self, x, y):
+        if x < 0 or x >= MAP_WIDTH or y < 0 or y >= MAP_HEIGHT:
+            return False
+        return self.route_map[y][x] in SOLID_TILES
+
+    def draw_route_explore(self):
+        """Draw the walkable route with tall grass encounter zones."""
+        stop = REGION_STOPS[self.region_index]
+        if self.route_map is None:
+            self.start_route_exploration()
+
+        for y in range(MAP_HEIGHT):
+            for x in range(MAP_WIDTH):
+                self.draw_tile(x, y, self.route_map[y][x])
+
+        title_panel = pygame.Rect(MAP_OFFSET_X + 10, MAP_OFFSET_Y + 10, 230, 46)
+        self.draw_gba_panel(title_panel, (255, 250, 217))
+        title = self.font_small.render(stop["name"], True, OUTLINE)
+        self.screen.blit(title, (title_panel.x + 18, title_panel.y + 14))
+
+        self.draw_player_at(self.route_player_x, self.route_player_y)
+        self.draw_dialog_box(["Walk through tall grass to search for Pokemon.", "Reach a path exit or press ESC for the region map."], "ARROWS")
+
+    def draw_wild_encounter(self):
+        """Show the result of a tall-grass encounter."""
+        self.draw_route_explore()
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+        overlay.set_alpha(80)
+        overlay.fill((9, 34, 74))
+        self.screen.blit(overlay, (0, 0))
+
+        encounter_panel = pygame.Rect(210, 122, 380, 260)
+        self.draw_gba_panel(encounter_panel, (255, 250, 217))
+        pokemon_name = self.wild_encounter_name or "poochyena"
+        self.draw_battle_pokemon(pokemon_name, (SCREEN_WIDTH // 2, 276), 130)
+        title = self.font_large.render(f"Wild {pokemon_name.capitalize()}!", True, OUTLINE)
+        self.screen.blit(title, title.get_rect(center=(SCREEN_WIDTH // 2, 162)))
+        level = self.font_medium.render(f"Lv.{self.wild_encounter_level}", True, TEXT_BLUE)
+        self.screen.blit(level, level.get_rect(center=(SCREEN_WIDTH // 2, 322)))
+        self.draw_dialog_box(["A wild Pokemon jumped out of the tall grass!", "Press ENTER to let it run back into the route."], "ENTER")
 
     def draw_sprite_with_shadow(self, name, midbottom):
         sprite = self.pokemon_sprites.get(name)
@@ -1476,6 +1657,45 @@ class Game:
         """Handle input on title screen"""
         if event.key == pygame.K_RETURN:
             self.state = STATE_NAME_ENTRY
+        elif event.key == pygame.K_t:
+            self.state = STATE_TEST_REGION_PICKER
+
+    def handle_test_region_picker_input(self, event):
+        """Handle the developer start-region picker."""
+        if event.key == pygame.K_ESCAPE:
+            self.state = STATE_TITLE
+        elif event.key == pygame.K_UP:
+            self.test_region_index = max(0, self.test_region_index - 1)
+        elif event.key == pygame.K_DOWN:
+            self.test_region_index = min(len(REGION_STOPS) - 1, self.test_region_index + 1)
+        elif event.key == pygame.K_PAGEUP:
+            self.test_region_index = max(0, self.test_region_index - 10)
+        elif event.key == pygame.K_PAGEDOWN:
+            self.test_region_index = min(len(REGION_STOPS) - 1, self.test_region_index + 10)
+        elif event.key == pygame.K_HOME:
+            self.test_region_index = 0
+        elif event.key == pygame.K_END:
+            self.test_region_index = len(REGION_STOPS) - 1
+        elif event.key == pygame.K_RETURN:
+            self.start_test_run(self.test_region_index)
+
+    def start_test_run(self, region_index):
+        """Skip story setup and begin testing at a chosen region stop."""
+        self.player_name = "TESTER"
+        self.starter_name = self.starter_name or STARTER_NAMES[self.starter_choice]
+        self.starter_level = max(self.starter_level, 12)
+        self.player_max_hp = 28
+        self.player_battle_hp = self.player_max_hp
+        self.professor_rescued = True
+        self.trail_unlocked = True
+        self.region_index = region_index
+        self.route_map = None
+        self.floating_texts = []
+        stop = REGION_STOPS[self.region_index]
+        if stop["kind"] in {"route", "forest", "cave"}:
+            self.start_route_exploration()
+        else:
+            self.state = STATE_NEXT_TOWN
     
     def handle_name_entry_input(self, event):
         """Handle input on name entry screen"""
@@ -1577,6 +1797,9 @@ class Game:
         if event.key == pygame.K_RETURN:
             stop = REGION_STOPS[self.region_index]
             self.try_find_stone("region", stop["name"])
+            if stop["kind"] in {"route", "forest", "cave"}:
+                self.start_route_exploration()
+                return
             badge = stop.get("badge")
             if badge and badge not in self.badges:
                 self.badges.append(badge)
@@ -1602,6 +1825,88 @@ class Game:
             return None
         options.sort()
         return options[0][2]
+
+    def handle_route_explore_input(self, event):
+        """Move through a local route and roll encounters in tall grass."""
+        if event.key == pygame.K_ESCAPE:
+            self.state = STATE_NEXT_TOWN
+            return
+
+        new_x, new_y = self.route_player_x, self.route_player_y
+        side = None
+        if event.key == pygame.K_UP:
+            new_y -= 1
+            self.player_direction = "up"
+            side = "north"
+        elif event.key == pygame.K_DOWN:
+            new_y += 1
+            self.player_direction = "down"
+            side = "south"
+        elif event.key == pygame.K_LEFT:
+            new_x -= 1
+            self.player_direction = "left"
+            side = "west"
+        elif event.key == pygame.K_RIGHT:
+            new_x += 1
+            self.player_direction = "right"
+            side = "east"
+        else:
+            return
+
+        if new_x < 0 or new_x >= MAP_WIDTH or new_y < 0 or new_y >= MAP_HEIGHT:
+            neighbor = self.get_region_neighbor_for_side(side)
+            if neighbor is not None:
+                self.enter_region_neighbor(neighbor, side)
+            return
+
+        if not self.is_route_solid(new_x, new_y):
+            self.route_player_x = new_x
+            self.route_player_y = new_y
+            self.update_player_walk_animation()
+            if self.route_map[new_y][new_x] == TILE_TALL_GRASS:
+                self.try_wild_encounter()
+
+    def enter_region_neighbor(self, neighbor, exit_side):
+        """Move from a route edge to the connected map node."""
+        self.region_index = neighbor
+        stop = REGION_STOPS[self.region_index]
+        opposite_side = {
+            "north": "south",
+            "south": "north",
+            "west": "east",
+            "east": "west",
+        }[exit_side]
+        if stop["kind"] in {"route", "forest", "cave"}:
+            self.start_route_exploration(opposite_side)
+        else:
+            self.route_map = None
+            self.state = STATE_NEXT_TOWN
+
+    def update_player_walk_animation(self):
+        self.player_anim_timer += 1
+        if self.player_anim_timer > 8:
+            self.player_anim_timer = 0
+            self.player_anim_frame = (self.player_anim_frame + 1) % 3
+
+    def try_wild_encounter(self):
+        """Tall grass has a chance to reveal a wild Pokemon after each step."""
+        if random.random() >= 0.22:
+            return
+        stop = REGION_STOPS[self.region_index]
+        encounter_tables = {
+            "forest": ["wurmple", "shroomish", "zigzagoon", "taillow"],
+            "cave": ["zubat", "geodude", "makuhita"],
+            "route": ["poochyena", "zigzagoon", "wurmple", "taillow", "wingull"],
+        }
+        choices = encounter_tables.get(stop["kind"], WILD_POKEMON)
+        self.wild_encounter_name = random.choice(choices)
+        self.wild_encounter_level = random.randint(max(2, self.starter_level - 2), self.starter_level + 2)
+        self.previous_state = STATE_ROUTE_EXPLORE
+        self.state = STATE_WILD_ENCOUNTER
+
+    def handle_wild_encounter_input(self, event):
+        if event.key in (pygame.K_RETURN, pygame.K_ESCAPE):
+            self.state = self.previous_state
 
     def handle_route_event_input(self, event):
         """Advance the northern route rescue event."""
@@ -1748,8 +2053,12 @@ class Game:
                 if event.type == pygame.KEYDOWN:
                     if self.handle_menu_input(event):
                         continue
-                    if self.state == STATE_TITLE:
+                    if event.key == pygame.K_F11:
+                        self.toggle_fullscreen()
+                    elif self.state == STATE_TITLE:
                         self.handle_title_input(event)
+                    elif self.state == STATE_TEST_REGION_PICKER:
+                        self.handle_test_region_picker_input(event)
                     elif self.state == STATE_NAME_ENTRY:
                         self.handle_name_entry_input(event)
                     elif self.state == STATE_TOWN:
@@ -1762,10 +2071,16 @@ class Game:
                         self.handle_battle_input(event)
                     elif self.state == STATE_NEXT_TOWN:
                         self.handle_next_town_input(event)
+                    elif self.state == STATE_ROUTE_EXPLORE:
+                        self.handle_route_explore_input(event)
+                    elif self.state == STATE_WILD_ENCOUNTER:
+                        self.handle_wild_encounter_input(event)
             
             # Draw based on current state
             if self.state == STATE_TITLE:
                 self.draw_title_screen()
+            elif self.state == STATE_TEST_REGION_PICKER:
+                self.draw_test_region_picker()
             elif self.state == STATE_NAME_ENTRY:
                 self.draw_title_screen()
                 self.draw_name_entry_screen()
@@ -1785,8 +2100,12 @@ class Game:
                 self.draw_bag_overlay()
             elif self.show_pokedex:
                 self.draw_pokedex_overlay()
+            elif self.state == STATE_ROUTE_EXPLORE:
+                self.draw_route_explore()
+            elif self.state == STATE_WILD_ENCOUNTER:
+                self.draw_wild_encounter()
             
-            pygame.display.flip()
+            self.present_screen()
             self.clock.tick(60)
         
         pygame.quit()
