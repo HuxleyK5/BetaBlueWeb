@@ -7,6 +7,7 @@ import pygame
 import sys
 import os
 import random
+import re
 from pathlib import Path
 
 # Ask SDL to place the game window in the center of the monitor.
@@ -98,6 +99,19 @@ TOWN_MAP = [
 SOLID_TILES = {TILE_TREE, TILE_WATER}
 STARTER_NAMES = ["treecko", "torchic", "mudkip"]
 EVENT_POKEMON = STARTER_NAMES + ["poochyena"]
+POKEDEX_FALLBACK = {
+    "treecko",
+    "grovyle",
+    "sceptile",
+    "torchic",
+    "combusken",
+    "blaziken",
+    "mudkip",
+    "marshtomp",
+    "swampert",
+    "poochyena",
+    "mightyena",
+}
 EVOLUTION_LEVELS = {
     "treecko": (16, "grovyle"),
     "grovyle": (36, "sceptile"),
@@ -106,6 +120,18 @@ EVOLUTION_LEVELS = {
     "mudkip": (16, "marshtomp"),
     "marshtomp": (36, "swampert"),
     "poochyena": (18, "mightyena"),
+}
+EVOLUTION_ITEMS = {
+    "Leaf Stone": {"treecko": "grovyle", "grovyle": "sceptile"},
+    "Fire Stone": {"torchic": "combusken", "combusken": "blaziken"},
+    "Water Stone": {"mudkip": "marshtomp", "marshtomp": "swampert"},
+    "Moon Stone": {"poochyena": "mightyena"},
+}
+STONE_FIND_SOURCES = {
+    ("building", "home"): "Leaf Stone",
+    ("building", "shore"): "Water Stone",
+    ("building", "lab"): "Fire Stone",
+    ("region", "Meteor Falls"): "Moon Stone",
 }
 ROUTE_ASSIST_TILE = (10, 1)
 STARTER_MOVES = {
@@ -371,6 +397,109 @@ for start, end in REGION_ROUTE_LINKS:
     REGION_LINK_LOOKUP[end].add(start)
 
 
+def load_pokedex_names():
+    img_dir = Path(__file__).resolve().parent / "Pokemon" / "img"
+    if img_dir.exists():
+        names = {path.stem.lower() for path in img_dir.glob("*.png")}
+        if names:
+            return sorted(names)
+    return sorted(POKEDEX_FALLBACK)
+
+
+def build_pokedex_knowledge(name, dex_number):
+    habitats = ["forest edge", "rocky pass", "coastal shallows", "city outskirts", "mountain trail"]
+    temperaments = ["calm", "bold", "curious", "fierce", "playful"]
+    traits = ["quick reflexes", "strong instincts", "high stamina", "keen senses", "surprising agility"]
+    habitat = habitats[dex_number % len(habitats)]
+    temperament = temperaments[(dex_number + 2) % len(temperaments)]
+    trait = traits[(dex_number + 4) % len(traits)]
+    cap = name.capitalize()
+    return [
+        f"{cap} is often spotted near the {habitat}.",
+        f"Trainers describe its behavior as {temperament}.",
+        f"Field notes mention {trait} in battle.",
+    ]
+
+
+def build_pokedex_battle_profile(name, dex_number):
+    move_pool = [
+        "Tackle", "Quick Attack", "Bite", "Scratch", "Ember", "Water Gun",
+        "Vine Whip", "Thunder Shock", "Rock Throw", "Wing Attack", "Confusion",
+        "Ice Shard", "Shadow Sneak", "Mud-Slap", "Swift", "Headbutt",
+    ]
+    key = sum(ord(ch) for ch in name) + dex_number * 17
+    hp = 45 + (key % 75)
+    attack = 30 + ((key * 3) % 70)
+    defense = 30 + ((key * 5) % 70)
+    speed = 25 + ((key * 7) % 95)
+    base_accuracy = 82 + (key % 16)
+
+    moves = []
+    for idx in range(4):
+        move_name = move_pool[(key + idx * 5) % len(move_pool)]
+        power = 35 + ((key + idx * 11) % 66)
+        accuracy = min(100, max(70, base_accuracy - idx + (idx % 2)))
+        moves.append({"name": move_name, "power": power, "accuracy": accuracy})
+    return {
+        "hp": hp,
+        "attack": attack,
+        "defense": defense,
+        "speed": speed,
+        "moves": moves,
+    }
+
+
+def load_species_profiles():
+    """Parse local Pokemon class files for canonical HP and move sets."""
+    profiles = {}
+    pokemon_dir = Path(__file__).resolve().parent / "Pokemon" / "Pokemons"
+    if not pokemon_dir.exists():
+        return profiles
+
+    py_files = sorted(pokemon_dir.glob("*.py"))
+    class_start = re.compile(r"^\s*class\s+([A-Za-z0-9_]+)\s*\(")
+    move_line = re.compile(r'Move\("([^"]+)",\s*"[^"]+",\s*([0-9]+)\)')
+    hp_line = re.compile(r'super\(\)\.__init__\("([^"]+)",\s*([0-9]+),')
+
+    for file_path in py_files:
+        lines = file_path.read_text(encoding="utf-8").splitlines()
+        i = 0
+        while i < len(lines):
+            class_match = class_start.match(lines[i])
+            if not class_match:
+                i += 1
+                continue
+
+            class_indent = len(lines[i]) - len(lines[i].lstrip())
+            class_name = class_match.group(1).lower()
+            i += 1
+            moves = []
+            hp = None
+            display_name = class_name
+
+            while i < len(lines):
+                line = lines[i]
+                stripped = line.strip()
+                if stripped:
+                    indent = len(line) - len(line.lstrip())
+                    if indent <= class_indent and stripped.startswith("class "):
+                        break
+                move_match = move_line.search(line)
+                if move_match:
+                    moves.append({"name": move_match.group(1), "power": int(move_match.group(2))})
+                hp_match = hp_line.search(line)
+                if hp_match:
+                    display_name = hp_match.group(1).lower()
+                    hp = int(hp_match.group(2))
+                i += 1
+
+            if hp is not None and moves:
+                key = display_name or class_name
+                profiles[key] = {"hp": hp, "moves": moves[:4]}
+        # continue outer while if class loop consumed file
+    return profiles
+
+
 class Game:
     def __init__(self):
         self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -383,6 +512,7 @@ class Game:
         self.font_large = pygame.font.Font(None, 48)
         self.font_medium = pygame.font.Font(None, 36)
         self.font_small = pygame.font.Font(None, 24)
+        self.font_tiny = pygame.font.Font(None, 20)
         
         # Player position (in tiles)
         self.player_x = 10
@@ -415,6 +545,18 @@ class Game:
         self.selected_move = 0
         self.battle_message = ""
         self.floating_texts = []
+        self.show_bag = False
+        self.show_pokedex = False
+        self.bag_items = {item_name: 0 for item_name in EVOLUTION_ITEMS}
+        self.bag_selection = 0
+        self.menu_message = ""
+        self.menu_message_timer = 0
+        self.pokedex_names = load_pokedex_names()
+        self.discovered_pokemon = set()
+        self.pokedex_selection = 0
+        self.pokedex_sprites = self.load_pokedex_sprites()
+        self.species_profiles = load_species_profiles()
+        self.found_sources = set()
 
     def load_pokemon_sprites(self):
         """Load small Pokemon sprites from the local asset folder for story events."""
@@ -425,6 +567,16 @@ class Game:
             if path.exists():
                 image = pygame.image.load(path).convert_alpha()
                 sprites[name] = self.scale_sprite(image, 42)
+        return sprites
+
+    def load_pokedex_sprites(self):
+        sprites = {}
+        img_dir = Path(__file__).resolve().parent / "Pokemon" / "img"
+        for name in self.pokedex_names:
+            path = img_dir / f"{name}.png"
+            if path.exists():
+                image = pygame.image.load(path).convert_alpha()
+                sprites[name] = self.scale_sprite(image, 160)
         return sprites
 
     def scale_sprite(self, image, max_size):
@@ -449,6 +601,41 @@ class Game:
         pygame.draw.rect(self.screen, GBA_PANEL_BLUE, rect, border_radius=4)
         pygame.draw.rect(self.screen, GBA_PANEL_SHADOW, rect.inflate(-6, -6), border_radius=3)
         pygame.draw.rect(self.screen, color, rect.inflate(-10, -10), border_radius=2)
+
+    def wrap_text_to_width(self, text, font, max_width):
+        words = text.split()
+        if not words:
+            return [""]
+        lines = []
+        current = words[0]
+        for word in words[1:]:
+            candidate = f"{current} {word}"
+            if font.size(candidate)[0] <= max_width:
+                current = candidate
+            else:
+                lines.append(current)
+                current = word
+        lines.append(current)
+        return lines
+
+    def draw_text_block(self, lines, x, y, max_width, line_height=22, color=OUTLINE):
+        draw_y = y
+        for line in lines:
+            wrapped = self.wrap_text_to_width(line, self.font_small, max_width)
+            for wrapped_line in wrapped:
+                text = self.font_small.render(wrapped_line, True, color)
+                self.screen.blit(text, (x, draw_y))
+                draw_y += line_height
+        return draw_y
+
+    def fit_text_single_line(self, text, font, max_width):
+        if font.size(text)[0] <= max_width:
+            return text
+        ellipsis = "..."
+        trimmed = text
+        while trimmed and font.size(trimmed + ellipsis)[0] > max_width:
+            trimmed = trimmed[:-1]
+        return (trimmed + ellipsis) if trimmed else ellipsis
         
     def is_solid(self, x, y):
         """Check if a tile is solid"""
@@ -570,6 +757,227 @@ class Game:
         prompt_text = self.font_small.render(prompt, True, TEXT_BLUE)
         prompt_rect = prompt_text.get_rect(right=box.right - 24, bottom=box.bottom - 14)
         self.screen.blit(prompt_text, prompt_rect)
+
+    def discover_pokemon(self, pokemon_name):
+        if not pokemon_name:
+            return
+        self.discovered_pokemon.add(pokemon_name.lower())
+
+    def try_find_stone(self, source_kind, source_id):
+        source_key = (source_kind, source_id)
+        if source_key in self.found_sources:
+            return
+        stone_name = STONE_FIND_SOURCES.get(source_key)
+        if not stone_name:
+            return
+        self.found_sources.add(source_key)
+        self.bag_items[stone_name] += 1
+        self.menu_message = f"You found a {stone_name}!"
+        self.menu_message_timer = 240
+
+    def set_menu_message(self, text, timer=180):
+        self.menu_message = text
+        self.menu_message_timer = timer
+
+    def get_bag_item_names(self):
+        return list(self.bag_items.keys())
+
+    def use_selected_bag_item(self):
+        item_names = self.get_bag_item_names()
+        if not item_names:
+            self.set_menu_message("Your bag is empty.")
+            return
+        item_name = item_names[self.bag_selection]
+        if self.bag_items[item_name] <= 0:
+            self.set_menu_message(f"No {item_name} left.")
+            return
+        if not self.starter_name:
+            self.set_menu_message("You do not have a Pokemon yet.")
+            return
+        evolution_targets = EVOLUTION_ITEMS[item_name]
+        current_name = self.starter_name.lower()
+        evolved_name = evolution_targets.get(current_name)
+        if not evolved_name:
+            self.set_menu_message(f"{item_name} has no effect on {self.starter_name.capitalize()}.")
+            return
+        self.starter_name = evolved_name
+        self.bag_items[item_name] -= 1
+        self.discover_pokemon(self.starter_name)
+        self.set_menu_message(f"{current_name.capitalize()} evolved into {evolved_name.capitalize()}!")
+
+    def draw_menu_message(self):
+        if self.menu_message_timer <= 0 or not self.menu_message:
+            return
+        self.menu_message_timer -= 1
+        msg_panel = pygame.Rect(170, 18, SCREEN_WIDTH - 340, 42)
+        self.draw_rounded_rect(msg_panel, (255, 250, 217), radius=8, outline_color=OUTLINE, outline_width=2)
+        msg_text = self.font_small.render(self.menu_message, True, OUTLINE)
+        msg_rect = msg_text.get_rect(center=msg_panel.center)
+        self.screen.blit(msg_text, msg_rect)
+
+    def draw_bag_overlay(self):
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+        overlay.set_alpha(165)
+        overlay.fill((9, 34, 74))
+        self.screen.blit(overlay, (0, 0))
+
+        panel = pygame.Rect(96, 68, SCREEN_WIDTH - 192, SCREEN_HEIGHT - 136)
+        self.draw_rounded_rect(panel, UI_PANEL, radius=16, outline_color=OUTLINE, outline_width=4)
+        title = self.font_large.render("Bag", True, TEXT_BLUE)
+        self.screen.blit(title, (panel.x + 24, panel.y + 18))
+
+        item_names = self.get_bag_item_names()
+        if self.bag_selection >= len(item_names):
+            self.bag_selection = max(0, len(item_names) - 1)
+        for index, item_name in enumerate(item_names):
+            line_rect = pygame.Rect(panel.x + 24, panel.y + 74 + index * 42, panel.width - 48, 34)
+            selected = index == self.bag_selection
+            line_color = (255, 248, 207) if selected else (233, 244, 255)
+            line_outline = TEXT_GOLD if selected else OUTLINE
+            self.draw_rounded_rect(line_rect, line_color, radius=8, outline_color=line_outline, outline_width=2)
+            label = self.font_small.render(f"{item_name} x{self.bag_items[item_name]}", True, OUTLINE)
+            self.screen.blit(label, (line_rect.x + 12, line_rect.y + 8))
+
+        partner = self.starter_name.capitalize() if self.starter_name else "None"
+        partner_text = self.font_small.render(f"Partner: {partner}", True, OUTLINE)
+        self.screen.blit(partner_text, (panel.x + 24, panel.bottom - 92))
+        help_text = self.font_small.render("UP/DOWN select  ENTER use item  B/ESC close", True, TEXT_BLUE)
+        self.screen.blit(help_text, (panel.x + 24, panel.bottom - 62))
+        if self.menu_message:
+            msg = self.font_small.render(self.menu_message, True, OUTLINE)
+            self.screen.blit(msg, (panel.x + 24, panel.bottom - 34))
+
+    def draw_pokedex_overlay(self):
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+        overlay.set_alpha(165)
+        overlay.fill((9, 34, 74))
+        self.screen.blit(overlay, (0, 0))
+
+        panel = pygame.Rect(72, 40, SCREEN_WIDTH - 144, SCREEN_HEIGHT - 80)
+        self.draw_rounded_rect(panel, UI_PANEL, radius=16, outline_color=OUTLINE, outline_width=4)
+        found_count = len(self.discovered_pokemon)
+        total_count = len(self.pokedex_names)
+        title = self.font_large.render(f"Pokedex {found_count}/{total_count}", True, TEXT_BLUE)
+        self.screen.blit(title, (panel.x + 24, panel.y + 18))
+        if not self.pokedex_names:
+            empty_text = self.font_medium.render("No Pokedex entries found.", True, OUTLINE)
+            self.screen.blit(empty_text, (panel.x + 24, panel.y + 90))
+            return
+
+        self.pokedex_selection = max(0, min(self.pokedex_selection, total_count - 1))
+        pokemon_name = self.pokedex_names[self.pokedex_selection]
+        discovered = pokemon_name in self.discovered_pokemon
+        dex_number = self.pokedex_selection + 1
+        name_text = pokemon_name.capitalize() if discovered else "???"
+
+        left_page = pygame.Rect(panel.x + 24, panel.y + 78, 250, panel.height - 124)
+        right_page = pygame.Rect(panel.x + 290, panel.y + 78, panel.width - 314, panel.height - 124)
+        self.draw_rounded_rect(left_page, (233, 244, 255), radius=10, outline_color=OUTLINE, outline_width=2)
+        self.draw_rounded_rect(right_page, (255, 250, 217), radius=10, outline_color=OUTLINE, outline_width=2)
+
+        dex_text = self.font_small.render(f"#{dex_number:03}", True, OUTLINE)
+        self.screen.blit(dex_text, (left_page.x + 14, left_page.y + 12))
+        species_text = self.font_medium.render(name_text, True, OUTLINE)
+        self.screen.blit(species_text, (left_page.x + 14, left_page.y + 30))
+
+        sprite = self.pokedex_sprites.get(pokemon_name)
+        if discovered and sprite:
+            sprite_rect = sprite.get_rect(center=(left_page.centerx, left_page.y + 170))
+            self.screen.blit(sprite, sprite_rect)
+        else:
+            hidden = self.font_large.render("???", True, (118, 132, 148))
+            hidden_rect = hidden.get_rect(center=(left_page.centerx, left_page.y + 160))
+            self.screen.blit(hidden, hidden_rect)
+
+        profile_title = self.font_small.render("Battle Profile", True, OUTLINE)
+        self.screen.blit(profile_title, (left_page.x + 14, left_page.bottom - 150))
+        if discovered:
+            profile = self.species_profiles.get(pokemon_name)
+            if profile:
+                hp_value = profile["hp"]
+                avg_power = sum(move["power"] for move in profile["moves"]) // max(1, len(profile["moves"]))
+                accuracy_hint = max(80, 100 - (avg_power // 8))
+                stats_line_1 = self.font_tiny.render(f"HP {hp_value}  PWR {avg_power}", True, OUTLINE)
+                stats_line_2 = self.font_tiny.render(f"ACC {accuracy_hint}%  MOVES {len(profile['moves'])}", True, OUTLINE)
+                self.screen.blit(stats_line_1, (left_page.x + 14, left_page.bottom - 124))
+                self.screen.blit(stats_line_2, (left_page.x + 14, left_page.bottom - 106))
+                moves_title = self.font_tiny.render("Moves (Power/Acc):", True, OUTLINE)
+                self.screen.blit(moves_title, (left_page.x + 14, left_page.bottom - 88))
+                move_y = left_page.bottom - 70
+                max_move_width = left_page.width - 28
+                for idx, move in enumerate(profile["moves"][:4]):
+                    accuracy = max(70, 100 - (move["power"] // 6))
+                    move_line = f"{idx + 1}. {move['name']}  P{move['power']} A{accuracy}%"
+                    fitted_line = self.fit_text_single_line(move_line, self.font_tiny, max_move_width)
+                    move_text = self.font_tiny.render(fitted_line, True, OUTLINE)
+                    self.screen.blit(move_text, (left_page.x + 14, move_y))
+                    move_y += 16
+            else:
+                fallback = build_pokedex_battle_profile(pokemon_name, dex_number)
+                stats_line_1 = self.font_tiny.render(f"HP {fallback['hp']}  PWR ~{fallback['attack']}", True, OUTLINE)
+                stats_line_2 = self.font_tiny.render("Move data unavailable in local dex files.", True, OUTLINE)
+                self.screen.blit(stats_line_1, (left_page.x + 14, left_page.bottom - 124))
+                self.screen.blit(stats_line_2, (left_page.x + 14, left_page.bottom - 104))
+        else:
+            locked_stats = self.font_small.render("Stats locked until discovered.", True, (118, 132, 148))
+            self.screen.blit(locked_stats, (left_page.x + 14, left_page.bottom - 124))
+
+        info_title = self.font_medium.render("Background Knowledge", True, OUTLINE)
+        self.screen.blit(info_title, (right_page.x + 16, right_page.y + 12))
+        if discovered:
+            info_lines = build_pokedex_knowledge(pokemon_name, dex_number)
+        else:
+            info_lines = [
+                "Entry locked.",
+                "Discover this Pokemon in the world",
+                "to unlock full field notes.",
+            ]
+        self.draw_text_block(
+            info_lines,
+            right_page.x + 16,
+            right_page.y + 56,
+            right_page.width - 32,
+            line_height=24,
+            color=OUTLINE if discovered else (118, 132, 148),
+        )
+
+        help_text = self.font_small.render("LEFT/RIGHT browse  P/ESC close", True, TEXT_BLUE)
+        help_rect = help_text.get_rect(right=panel.right - 20, bottom=panel.bottom - 16)
+        self.screen.blit(help_text, help_rect)
+
+    def handle_menu_input(self, event):
+        if event.key == pygame.K_b:
+            self.show_bag = not self.show_bag
+            if self.show_bag:
+                self.show_pokedex = False
+            return True
+        if event.key == pygame.K_p:
+            self.show_pokedex = not self.show_pokedex
+            if self.show_pokedex:
+                self.show_bag = False
+            return True
+
+        if self.show_bag:
+            item_count = len(self.get_bag_item_names())
+            if event.key in (pygame.K_ESCAPE,):
+                self.show_bag = False
+            elif event.key == pygame.K_UP and item_count > 0:
+                self.bag_selection = (self.bag_selection - 1) % item_count
+            elif event.key == pygame.K_DOWN and item_count > 0:
+                self.bag_selection = (self.bag_selection + 1) % item_count
+            elif event.key == pygame.K_RETURN:
+                self.use_selected_bag_item()
+            return True
+
+        if self.show_pokedex:
+            if event.key in (pygame.K_ESCAPE,):
+                self.show_pokedex = False
+            elif event.key == pygame.K_LEFT and self.pokedex_names:
+                self.pokedex_selection = (self.pokedex_selection - 1) % len(self.pokedex_names)
+            elif event.key == pygame.K_RIGHT and self.pokedex_names:
+                self.pokedex_selection = (self.pokedex_selection + 1) % len(self.pokedex_names)
+            return True
+        return False
     
     def draw_player(self):
         """Draw the player character"""
@@ -746,6 +1154,8 @@ class Game:
             bg_rect.inflate_ip(4, 2)
             pygame.draw.rect(self.screen, OUTLINE, bg_rect, border_radius=4)
             self.screen.blit(name_label, label_rect)
+        hud_hint = self.font_small.render("B: Bag  P: Pokedex", True, TEXT_WHITE)
+        self.screen.blit(hud_hint, (MAP_OFFSET_X + 6, MAP_OFFSET_Y + MAP_PIXEL_HEIGHT + 8))
 
     def draw_building_interior(self):
         """Draw simple interiors for homes and the professor's lab."""
@@ -853,7 +1263,7 @@ class Game:
         if stop.get("badge") and stop["badge"] not in self.badges:
             prompt = f"ENTER: win {stop['badge']}"
         else:
-            prompt = "ARROWS: travel routes  ENTER: visit  ESC: Bluebell"
+            prompt = "ARROWS: travel  ENTER: visit  B: Bag  P: Pokedex  ESC: Bluebell"
         prompt_text = self.font_small.render(prompt, True, TEXT_BLUE)
         prompt_rect = prompt_text.get_rect(right=title_panel.right - 24, bottom=title_panel.bottom - 14)
         self.screen.blit(prompt_text, prompt_rect)
@@ -1028,6 +1438,7 @@ class Game:
         self.screen.blit(wild_level_label, (430, 326))
 
         if self.event_step == 0:
+            self.discover_pokemon("poochyena")
             self.draw_dialog_box(["Professor Birch: Help! A wild Pokemon", "is attacking me on the north trail!"])
         elif self.event_step == 1:
             self.draw_starter_selection()
@@ -1083,6 +1494,7 @@ class Game:
         building = self.get_building_at_player()
         if event.key == pygame.K_RETURN and building:
             self.current_building = building
+            self.try_find_stone("building", building["id"])
             self.state = STATE_BUILDING
             return
 
@@ -1141,6 +1553,7 @@ class Game:
             elif event.key == pygame.K_RETURN:
                 self.starter_name = STARTER_NAMES[self.starter_choice]
                 self.starter_level = 5
+                self.discover_pokemon(self.starter_name)
         elif event.key == pygame.K_RETURN:
             if self.current_building and self.current_building["kind"] == "lab" and self.professor_rescued:
                 self.trail_unlocked = True
@@ -1163,6 +1576,7 @@ class Game:
 
         if event.key == pygame.K_RETURN:
             stop = REGION_STOPS[self.region_index]
+            self.try_find_stone("region", stop["name"])
             badge = stop.get("badge")
             if badge and badge not in self.badges:
                 self.badges.append(badge)
@@ -1202,6 +1616,7 @@ class Game:
                 self.starter_choice = (self.starter_choice + 1) % len(STARTER_NAMES)
             elif event.key == pygame.K_RETURN:
                 self.starter_name = STARTER_NAMES[self.starter_choice]
+                self.discover_pokemon(self.starter_name)
                 self.event_step = 2
             return
 
@@ -1319,6 +1734,7 @@ class Game:
             if self.starter_level < required_level:
                 return
             self.starter_name = evolved_name
+            self.discover_pokemon(self.starter_name)
     
     def run(self):
         """Main game loop"""
@@ -1330,6 +1746,8 @@ class Game:
                     running = False
                 
                 if event.type == pygame.KEYDOWN:
+                    if self.handle_menu_input(event):
+                        continue
                     if self.state == STATE_TITLE:
                         self.handle_title_input(event)
                     elif self.state == STATE_NAME_ENTRY:
@@ -1361,6 +1779,12 @@ class Game:
                 self.draw_battle_scene()
             elif self.state == STATE_NEXT_TOWN:
                 self.draw_next_town()
+
+            self.draw_menu_message()
+            if self.show_bag:
+                self.draw_bag_overlay()
+            elif self.show_pokedex:
+                self.draw_pokedex_overlay()
             
             pygame.display.flip()
             self.clock.tick(60)
