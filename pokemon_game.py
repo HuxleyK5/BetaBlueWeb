@@ -26,26 +26,26 @@ MAP_PIXEL_HEIGHT = MAP_HEIGHT * TILE_SIZE
 MAP_OFFSET_X = (SCREEN_WIDTH - MAP_PIXEL_WIDTH) // 2
 MAP_OFFSET_Y = (SCREEN_HEIGHT - MAP_PIXEL_HEIGHT) // 2
 
-# Colors - soft, vibrant handheld palette
-GRASS = (102, 204, 116)
-GRASS_LIGHT = (133, 222, 139)
-GRASS_DARK = (67, 161, 86)
-PATH = (232, 204, 142)
-PATH_LIGHT = (246, 224, 171)
-PATH_DARK = (204, 170, 105)
+# Colors - bright Hoenn-inspired handheld palette
+GRASS = (87, 184, 148)
+GRASS_LIGHT = (112, 202, 165)
+GRASS_DARK = (47, 133, 104)
+PATH = (238, 218, 145)
+PATH_LIGHT = (255, 239, 177)
+PATH_DARK = (196, 162, 96)
 WATER = (48, 160, 232)
 WATER_LIGHT = (112, 211, 255)
 WATER_DARK = (31, 119, 202)
-BUILDING = (245, 238, 211)
-BUILDING_SHADE = (219, 204, 174)
-BUILDING_ROOF = (83, 142, 220)
-BUILDING_ROOF_DARK = (45, 92, 175)
-TREE = (48, 164, 85)
-TREE_LIGHT = (91, 207, 112)
-TREE_DARK = (33, 128, 70)
-TREE_TRUNK = (141, 93, 51)
-FLOWER_PINK = (255, 139, 169)
-FLOWER_YELLOW = (255, 225, 100)
+BUILDING = (219, 216, 187)
+BUILDING_SHADE = (165, 176, 158)
+BUILDING_ROOF = (190, 159, 94)
+BUILDING_ROOF_DARK = (116, 91, 83)
+TREE = (59, 160, 70)
+TREE_LIGHT = (128, 217, 91)
+TREE_DARK = (35, 116, 70)
+TREE_TRUNK = (127, 89, 58)
+FLOWER_PINK = (248, 111, 94)
+FLOWER_YELLOW = (255, 227, 105)
 UI_BG = (42, 84, 143)
 UI_PANEL = (247, 251, 255)
 OUTLINE = (36, 54, 82)
@@ -79,23 +79,23 @@ TILE_TREE = 3
 TILE_WATER = 4
 TILE_TALL_GRASS = 5
 
-# Create the town map (20x15)
+# Create the town map (20x15), sized to fill the 800x600 play canvas.
 TOWN_MAP = [
-    [3, 3, 3, 3, 3, 3, 3, 3, 3, 1, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3],
-    [3, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 4, 4, 3],
-    [3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 4, 3],
-    [3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 4, 3],
-    [3, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 4, 4, 3],
-    [3, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 3],
-    [3, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 3],
-    [3, 0, 0, 1, 0, 3, 0, 0, 0, 1, 1, 0, 0, 3, 1, 1, 1, 1, 0, 3],
-    [3, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 3],
-    [3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 3],
-    [3, 0, 0, 4, 4, 4, 0, 3, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 3],
-    [3, 0, 0, 4, 4, 4, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 3],
-    [3, 0, 0, 4, 4, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3],
+    [3, 3, 3, 3, 3, 3, 0, 0, 0, 3, 3, 3, 3, 3, 3, 3, 0, 0, 0, 3],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3],
     [3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3],
-    [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+    [3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3],
 ]
 
 # Solid tiles that player cannot walk through
@@ -139,35 +139,35 @@ BUILDINGS = [
         "name": "Bluebell House",
         "kind": "house",
         "x": 2,
-        "y": 3,
+        "y": 2,
         "w": 4,
         "h": 3,
-        "door": (3, 6),
-        "roof": (226, 102, 102),
+        "door": (4, 5),
+        "roof": BUILDING_ROOF,
         "message": ["A cozy village home.", "Someone packed snacks for your trip."],
     },
     {
         "id": "lab",
         "name": "Professor's Lab",
         "kind": "lab",
-        "x": 8,
-        "y": 2,
-        "w": 5,
-        "h": 3,
-        "door": (10, 5),
-        "roof": BUILDING_ROOF,
+        "x": 3,
+        "y": 8,
+        "w": 7,
+        "h": 4,
+        "door": (6, 12),
+        "roof": (143, 165, 98),
         "message": ["Professor Birch left in a hurry.", "Pick a starter before heading north!"],
     },
     {
         "id": "shore",
         "name": "Shore House",
         "kind": "house",
-        "x": 14,
-        "y": 4,
+        "x": 13,
+        "y": 2,
         "w": 4,
         "h": 3,
-        "door": (15, 7),
-        "roof": (99, 188, 136),
+        "door": (14, 5),
+        "roof": BUILDING_ROOF,
         "message": ["The sea breeze rolls through town.", "A neighbor says the professor went north."],
     },
 ]
@@ -500,19 +500,11 @@ class Game:
         pixel_y = MAP_OFFSET_Y + y * TILE_SIZE
         
         if tile_type == TILE_GRASS:
-            color = GRASS if (x + y) % 2 == 0 else GRASS_LIGHT
-            pygame.draw.rect(self.screen, color, (pixel_x, pixel_y, TILE_SIZE, TILE_SIZE))
-            pygame.draw.rect(self.screen, (91, 190, 106), (pixel_x, pixel_y, TILE_SIZE, TILE_SIZE), 1)
-            if (x * 3 + y * 7) % 5 == 0:
-                pygame.draw.line(self.screen, GRASS_DARK, (pixel_x + 8, pixel_y + 22), (pixel_x + 10, pixel_y + 16), 2)
-                pygame.draw.line(self.screen, GRASS_DARK, (pixel_x + 22, pixel_y + 18), (pixel_x + 25, pixel_y + 12), 2)
-            if (x * 5 + y * 2) % 13 == 0:
-                pygame.draw.circle(self.screen, FLOWER_PINK, (pixel_x + 12, pixel_y + 12), 2)
-                pygame.draw.circle(self.screen, FLOWER_YELLOW, (pixel_x + 21, pixel_y + 22), 2)
+            self.draw_grass_base(pixel_x, pixel_y, x, y)
                 
         elif tile_type == TILE_PATH:
             pygame.draw.rect(self.screen, PATH, (pixel_x, pixel_y, TILE_SIZE, TILE_SIZE))
-            pygame.draw.rect(self.screen, PATH_LIGHT, (pixel_x + 3, pixel_y + 3, 26, 26), 1, border_radius=4)
+            pygame.draw.rect(self.screen, PATH_LIGHT, (pixel_x + 3, pixel_y + 3, 26, 26), 1)
             if (x + y) % 2 == 0:
                 pygame.draw.circle(self.screen, PATH_DARK, (pixel_x + 9, pixel_y + 21), 2)
                 pygame.draw.circle(self.screen, PATH_DARK, (pixel_x + 23, pixel_y + 10), 1)
@@ -538,11 +530,20 @@ class Game:
             pygame.draw.circle(self.screen, TEXT_GOLD, (pixel_x + 24, pixel_y + 24), 1)
             
         elif tile_type == TILE_TREE:
-            pygame.draw.rect(self.screen, TREE_TRUNK, (pixel_x + 12, pixel_y + 19, 8, 13), border_radius=3)
-            pygame.draw.circle(self.screen, OUTLINE, (pixel_x + 16, pixel_y + 13), 15)
-            pygame.draw.circle(self.screen, TREE, (pixel_x + 16, pixel_y + 13), 13)
-            pygame.draw.circle(self.screen, TREE_LIGHT, (pixel_x + 10, pixel_y + 8), 6)
-            pygame.draw.circle(self.screen, TREE_DARK, (pixel_x + 22, pixel_y + 16), 7)
+            self.draw_grass_base(pixel_x, pixel_y, x, y)
+            pygame.draw.rect(self.screen, TREE_TRUNK, (pixel_x + 16, pixel_y + 22, 8, 14))
+            pygame.draw.rect(self.screen, (99, 70, 46), (pixel_x + 19, pixel_y + 22, 3, 14))
+            leaf_blocks = [
+                pygame.Rect(pixel_x + 8, pixel_y + 5, 24, 8),
+                pygame.Rect(pixel_x + 4, pixel_y + 12, 32, 12),
+                pygame.Rect(pixel_x + 8, pixel_y + 24, 24, 8),
+            ]
+            for block in leaf_blocks:
+                pygame.draw.rect(self.screen, TREE_DARK, block)
+            pygame.draw.rect(self.screen, TREE, (pixel_x + 7, pixel_y + 9, 26, 18))
+            pygame.draw.rect(self.screen, TREE_LIGHT, (pixel_x + 10, pixel_y + 10, 7, 5))
+            pygame.draw.rect(self.screen, TREE_LIGHT, (pixel_x + 22, pixel_y + 8, 6, 5))
+            pygame.draw.rect(self.screen, (82, 180, 72), (pixel_x + 24, pixel_y + 20, 7, 5))
             
         elif tile_type == TILE_WATER:
             pygame.draw.rect(self.screen, WATER, (pixel_x, pixel_y, TILE_SIZE, TILE_SIZE))
@@ -566,44 +567,105 @@ class Game:
             if (x * 7 + y * 5) % 6 == 0:
                 pygame.draw.circle(self.screen, FLOWER_YELLOW, (pixel_x + 24, pixel_y + 10), 2)
 
+    def draw_grass_base(self, pixel_x, pixel_y, tile_x, tile_y):
+        """Paint a calm grass tile with sparse handheld texture."""
+        color = GRASS if (tile_x + tile_y) % 2 == 0 else GRASS_LIGHT
+        pygame.draw.rect(self.screen, color, (pixel_x, pixel_y, TILE_SIZE, TILE_SIZE))
+        dot_color = (144, 216, 183)
+        for dot_y in range(8, TILE_SIZE, 16):
+            for dot_x in range(8, TILE_SIZE, 16):
+                if (tile_x * 7 + tile_y * 5 + dot_x + dot_y) % 3 != 0:
+                    pygame.draw.rect(self.screen, dot_color, (pixel_x + dot_x, pixel_y + dot_y, 2, 2))
+
     def draw_building(self, building):
         """Draw one enterable building as a single readable landmark."""
         x = MAP_OFFSET_X + building["x"] * TILE_SIZE
         y = MAP_OFFSET_Y + building["y"] * TILE_SIZE
         width = building["w"] * TILE_SIZE
         height = building["h"] * TILE_SIZE
-        pygame.draw.ellipse(self.screen, (52, 128, 92), (x + 8, y + height - 8, width - 16, 14))
-        self.draw_rounded_rect(
-            pygame.Rect(x + 4, y + 28, width - 8, height - 32),
-            BUILDING,
-            radius=12,
-            outline_color=OUTLINE,
-            outline_width=3,
-        )
-        pygame.draw.polygon(
-            self.screen,
-            OUTLINE,
-            [(x - 2, y + 35), (x + width // 2, y), (x + width + 2, y + 35)],
-        )
-        pygame.draw.polygon(
-            self.screen,
-            building["roof"],
-            [(x + 5, y + 34), (x + width // 2, y + 7), (x + width - 5, y + 34)],
-        )
-        pygame.draw.line(self.screen, BUILDING_ROOF_DARK, (x + 16, y + 36), (x + width - 16, y + 36), 4)
-        door_x = MAP_OFFSET_X + building["door"][0] * TILE_SIZE + 6
-        door_y = MAP_OFFSET_Y + building["door"][1] * TILE_SIZE - 30
-        pygame.draw.rect(self.screen, (126, 84, 58), (door_x, door_y, 20, 34), border_radius=5)
-        pygame.draw.circle(self.screen, TEXT_GOLD, (door_x + 15, door_y + 18), 2)
-        pygame.draw.rect(self.screen, (173, 225, 250), (x + 20, y + 56, 20, 16), border_radius=4)
-        pygame.draw.rect(self.screen, OUTLINE, (x + 20, y + 56, 20, 16), 2, border_radius=4)
-        pygame.draw.rect(self.screen, (173, 225, 250), (x + width - 40, y + 56, 20, 16), border_radius=4)
-        pygame.draw.rect(self.screen, OUTLINE, (x + width - 40, y + 56, 20, 16), 2, border_radius=4)
+        roof_color = building["roof"]
+        roof_dark = BUILDING_ROOF_DARK
+        wall_top = (235, 232, 201)
+        wall_bottom = (174, 190, 164)
+        trim = (94, 110, 130)
+        shadow = (68, 121, 103)
+        door_x = MAP_OFFSET_X + building["door"][0] * TILE_SIZE + 8
+        door_y = MAP_OFFSET_Y + building["door"][1] * TILE_SIZE - 28
+        glow = (239, 220, 142)
 
-        label = self.font_small.render(building["name"], True, OUTLINE)
-        label_rect = label.get_rect(center=(x + width // 2, y + height + 13))
-        pygame.draw.rect(self.screen, UI_PANEL, label_rect.inflate(8, 4), border_radius=4)
-        self.screen.blit(label, label_rect)
+        if building["kind"] == "lab":
+            pygame.draw.ellipse(self.screen, shadow, (x + 6, y + height - 4, width - 12, 16))
+            pygame.draw.rect(self.screen, roof_dark, (x + 8, y + 12, width - 16, 42))
+            pygame.draw.rect(self.screen, roof_color, (x + 12, y + 16, width - 24, 34))
+            pygame.draw.rect(self.screen, (181, 197, 119), (x + 16, y + 20, width - 32, 7))
+            for stripe_x in range(x + 22, x + width - 24, 20):
+                pygame.draw.line(self.screen, (119, 139, 82), (stripe_x, y + 17), (stripe_x - 8, y + 50), 2)
+            pygame.draw.rect(self.screen, OUTLINE, (x + 8, y + 12, width - 16, 42), 3)
+            pygame.draw.rect(self.screen, wall_top, (x + 18, y + 54, width - 36, height - 62))
+            pygame.draw.rect(self.screen, wall_bottom, (x + 18, y + height - 38, width - 36, 24))
+            pygame.draw.rect(self.screen, OUTLINE, (x + 18, y + 54, width - 36, height - 68), 3)
+            pygame.draw.rect(self.screen, (86, 111, 135), (door_x, door_y, 25, 34))
+            pygame.draw.rect(self.screen, (176, 207, 222), (door_x + 5, door_y + 3, 8, 28))
+            pygame.draw.rect(self.screen, (102, 150, 191), (door_x + 14, door_y + 3, 8, 28))
+            pygame.draw.rect(self.screen, (113, 169, 202), (x + 32, y + 82, 58, 24))
+            pygame.draw.rect(self.screen, OUTLINE, (x + 32, y + 82, 58, 24), 3)
+            pygame.draw.line(self.screen, (238, 249, 255), (x + 38, y + 90), (x + 82, y + 90), 2)
+            pygame.draw.rect(self.screen, (201, 201, 190), (x + width - 46, y + 74, 28, 42))
+            pygame.draw.rect(self.screen, (241, 241, 226), (x + width - 42, y + 78, 20, 12))
+            pygame.draw.circle(self.screen, OUTLINE, (x + 70, y + 13), 24)
+            pygame.draw.circle(self.screen, (184, 202, 217), (x + 70, y + 13), 18)
+            pygame.draw.circle(self.screen, (104, 124, 151), (x + 70, y + 13), 9)
+            pygame.draw.ellipse(self.screen, glow, (door_x - 13, door_y + 28, 51, 11))
+            return
+
+        pygame.draw.ellipse(self.screen, shadow, (x + 6, y + height - 5, width - 12, 14))
+        pygame.draw.rect(self.screen, roof_dark, (x + 9, y + 10, width - 18, 42))
+        pygame.draw.rect(self.screen, roof_color, (x + 13, y + 14, width - 26, 34))
+        pygame.draw.rect(self.screen, (227, 190, 106), (x + 18, y + 19, width - 36, 6))
+        pygame.draw.rect(self.screen, (227, 190, 106), (x + 18, y + 31, width - 36, 6))
+        for beam_x in range(x + 18, x + width - 18, 18):
+            pygame.draw.line(self.screen, roof_dark, (beam_x, y + 14), (beam_x - 8, y + 49), 2)
+        pygame.draw.rect(self.screen, OUTLINE, (x + 9, y + 10, width - 18, 42), 3)
+        pygame.draw.rect(self.screen, wall_top, (x + 21, y + 52, width - 42, height - 60))
+        pygame.draw.rect(self.screen, wall_bottom, (x + 21, y + height - 34, width - 42, 18))
+        pygame.draw.rect(self.screen, OUTLINE, (x + 21, y + 52, width - 42, height - 64), 3)
+        pygame.draw.rect(self.screen, trim, (x + 24, y + 56, 9, height - 72))
+        pygame.draw.rect(self.screen, trim, (x + width - 33, y + 56, 9, height - 72))
+        pygame.draw.rect(self.screen, (118, 89, 61), (door_x, door_y, 24, 30))
+        pygame.draw.rect(self.screen, (178, 139, 82), (door_x + 4, door_y + 4, 7, 22))
+        pygame.draw.rect(self.screen, (109, 158, 181), (x + 46, y + 74, 34, 17))
+        pygame.draw.rect(self.screen, OUTLINE, (x + 46, y + 74, 34, 17), 2)
+        pygame.draw.line(self.screen, (222, 241, 240), (x + 50, y + 81), (x + 74, y + 81), 2)
+        pygame.draw.ellipse(self.screen, glow, (door_x - 8, door_y + 27, 42, 9))
+
+    def draw_small_sign(self, tile_x, tile_y):
+        """Draw the small purple town signs from the reference scene."""
+        x = MAP_OFFSET_X + tile_x * TILE_SIZE + 11
+        y = MAP_OFFSET_Y + tile_y * TILE_SIZE + 10
+        pygame.draw.rect(self.screen, (76, 87, 132), (x, y, 20, 17))
+        pygame.draw.rect(self.screen, (185, 183, 222), (x + 3, y + 3, 14, 8))
+        pygame.draw.rect(self.screen, (73, 80, 123), (x + 4, y + 17, 12, 4))
+        pygame.draw.line(self.screen, (244, 239, 255), (x + 6, y + 7), (x + 14, y + 7), 1)
+
+    def draw_flower_patch(self, tile_x, tile_y):
+        """Draw compact red-and-yellow flower clusters on grass."""
+        base_x = MAP_OFFSET_X + tile_x * TILE_SIZE
+        base_y = MAP_OFFSET_Y + tile_y * TILE_SIZE
+        for offset_x, offset_y in ((6, 13), (19, 9), (29, 19), (13, 26)):
+            cx = base_x + offset_x
+            cy = base_y + offset_y
+            pygame.draw.rect(self.screen, GRASS_DARK, (cx - 1, cy + 2, 3, 5))
+            pygame.draw.rect(self.screen, FLOWER_PINK, (cx - 4, cy - 2, 4, 4))
+            pygame.draw.rect(self.screen, FLOWER_PINK, (cx + 1, cy - 2, 4, 4))
+            pygame.draw.rect(self.screen, FLOWER_YELLOW, (cx - 1, cy - 1, 3, 3))
+
+    def draw_town_details(self):
+        """Place small decorations after the main buildings."""
+        for sign_x, sign_y in ((6, 4), (12, 4), (11, 7), (6, 12)):
+            self.draw_small_sign(sign_x, sign_y)
+
+        for flower_x, flower_y in ((0, 6), (3, 6), (15, 6), (18, 5), (3, 12), (4, 12), (5, 12)):
+            self.draw_flower_patch(flower_x, flower_y)
 
     def draw_dialog_box(self, lines, prompt="Press ENTER"):
         box = pygame.Rect(54, SCREEN_HEIGHT - 142, SCREEN_WIDTH - 108, 104)
@@ -810,11 +872,7 @@ class Game:
         for building in BUILDINGS:
             self.draw_building(building)
 
-        route_sign = pygame.Rect(MAP_OFFSET_X + 348, MAP_OFFSET_Y + 50, 104, 32)
-        self.draw_gba_panel(route_sign, (255, 250, 217))
-        sign_text = self.font_small.render("ROUTE 101", True, OUTLINE)
-        sign_rect = sign_text.get_rect(center=route_sign.center)
-        self.screen.blit(sign_text, sign_rect)
+        self.draw_town_details()
 
         # Draw player
         self.draw_player()
