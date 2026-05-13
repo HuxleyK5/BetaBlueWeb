@@ -66,6 +66,7 @@ STATE_TITLE = "title"
 STATE_NAME_ENTRY = "name_entry"
 STATE_TOWN = "town"
 STATE_BUILDING = "building"
+STATE_TRAIL_FADE = "trail_fade"
 STATE_ROUTE_EVENT = "route_event"
 STATE_BATTLE = "battle"
 STATE_NEXT_TOWN = "world_map"
@@ -127,7 +128,8 @@ STONE_FIND_SOURCES = {
     ("building", "lab"): "Fire Stone",
     ("region", "Meteor Falls"): "Moon Stone",
 }
-ROUTE_ASSIST_TILE = (10, 1)
+ROUTE_ASSIST_TILES = {(6, 0), (7, 0), (8, 0)}
+ROUTE_RETURN_TILE = (7, 0)
 STARTER_MOVES = {
     "treecko": [
         {"name": "Pound", "power": 6, "accuracy": 95},
@@ -595,6 +597,9 @@ class Game:
         self.ball_anim_total = 0
         self.ball_anim_type = ""
         self.pending_catch_resolution = None
+        self.trail_fade_timer = 0
+        self.trail_fade_duration = 42
+        self.trail_fade_destination = None
 
     def toggle_fullscreen(self):
         """Switch between fullscreen and a normal 800x600 window."""
@@ -702,7 +707,49 @@ class Game:
         return None
 
     def player_at_route_assist(self):
-        return (self.player_x, self.player_y) == ROUTE_ASSIST_TILE
+        return (self.player_x, self.player_y) in ROUTE_ASSIST_TILES
+
+    def begin_trail_fade(self, destination):
+        """Start the automatic transition from town into the northern trail."""
+        self.trail_fade_destination = destination
+        self.trail_fade_timer = self.trail_fade_duration
+        self.show_bag = False
+        self.show_pokedex = False
+        self.state = STATE_TRAIL_FADE
+
+    def finish_trail_fade(self):
+        """Complete the trail fade and enter the appropriate next scene."""
+        destination = self.trail_fade_destination
+        self.trail_fade_destination = None
+        self.trail_fade_timer = 0
+        if destination == STATE_ROUTE_EVENT:
+            self.state = STATE_ROUTE_EVENT
+            self.event_step = 0
+            self.player_battle_hp = self.player_max_hp
+            self.wild_battle_hp = self.wild_max_hp
+            self.selected_move = 0
+            self.battle_message = ""
+        elif destination == STATE_NEXT_TOWN:
+            self.state = STATE_NEXT_TOWN
+        else:
+            self.state = STATE_TOWN
+
+    def update_trail_fade(self):
+        if self.trail_fade_timer <= 0:
+            self.finish_trail_fade()
+            return
+        self.trail_fade_timer -= 1
+        if self.trail_fade_timer <= 0:
+            self.finish_trail_fade()
+
+    def draw_trail_fade(self):
+        self.draw_town()
+        progress = 1 - (self.trail_fade_timer / self.trail_fade_duration)
+        alpha = min(255, int(255 * progress))
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+        overlay.set_alpha(alpha)
+        overlay.fill((8, 25, 48))
+        self.screen.blit(overlay, (0, 0))
     
     def draw_tile(self, x, y, tile_type):
         """Draw a single tile"""
@@ -1376,10 +1423,10 @@ class Game:
         building = self.get_building_at_player()
         if building:
             self.draw_dialog_box([f"Enter {building['name']}?", "Press ENTER to go inside."], "ENTER")
-        elif self.player_at_route_assist() and not self.professor_rescued:
-            self.draw_dialog_box(["You hear the professor shouting up ahead!", "Press ENTER to enter the north trail."], "ENTER")
-        elif self.player_at_route_assist() and self.trail_unlocked:
-            self.draw_dialog_box(["The north trail opens onto connected routes.", "Press ENTER to travel the region."], "ENTER")
+        elif self.player_at_route_assist() and self.state == STATE_TOWN and not self.professor_rescued:
+            self.draw_dialog_box(["You hear the professor shouting up ahead!", "The trail pulls you forward."], "ARROWS")
+        elif self.player_at_route_assist() and self.state == STATE_TOWN and self.trail_unlocked:
+            self.draw_dialog_box(["The north trail opens onto connected routes.", "Step onto it to travel the region."], "ARROWS")
         elif self.player_at_route_assist() and self.professor_rescued:
             starter = self.starter_name.capitalize() if self.starter_name else "starter"
             self.draw_dialog_box([f"The northern route is calm again.", f"Visit the lab with {starter} first."], "ENTER")
@@ -1430,27 +1477,13 @@ class Game:
     def draw_next_town(self):
         """Draw the open region map reached from the north trail."""
         stop = REGION_STOPS[self.region_index]
-        self.screen.fill((116, 193, 156))
-        pygame.draw.rect(self.screen, (74, 151, 171), (0, 0, SCREEN_WIDTH, SCREEN_HEIGHT))
-        pygame.draw.ellipse(self.screen, (112, 199, 138), (-78, 82, 610, 500))
-        pygame.draw.ellipse(self.screen, (104, 189, 128), (372, 42, 482, 500))
-        pygame.draw.ellipse(self.screen, (83, 170, 116), (494, 250, 312, 280))
-        pygame.draw.ellipse(self.screen, WATER, (516, 392, 220, 150))
-        pygame.draw.ellipse(self.screen, WATER_LIGHT, (548, 418, 132, 74))
-
-        map_title = self.font_large.render("Hoenn Routes", True, TEXT_WHITE)
-        self.screen.blit(map_title, (28, 22))
-        badge_text = f"Badges: {len(self.badges)}/8"
-        badge_label = self.font_small.render(badge_text, True, TEXT_WHITE)
-        badge_rect = badge_label.get_rect(topright=(SCREEN_WIDTH - 34, 28))
-        pygame.draw.rect(self.screen, OUTLINE, badge_rect.inflate(12, 8), border_radius=5)
-        self.screen.blit(badge_label, badge_rect)
+        self.draw_hoenn_world_map_base()
 
         for start, end in REGION_ROUTE_LINKS:
             start_pos = REGION_NODE_POSITIONS[start]
             end_pos = REGION_NODE_POSITIONS[end]
-            pygame.draw.line(self.screen, OUTLINE, start_pos, end_pos, 10)
-            pygame.draw.line(self.screen, PATH, start_pos, end_pos, 6)
+            pygame.draw.line(self.screen, (246, 229, 116), start_pos, end_pos, 9)
+            pygame.draw.line(self.screen, (204, 146, 34), start_pos, end_pos, 3)
 
         for index, node_stop in enumerate(REGION_STOPS):
             self.draw_region_node(index, node_stop)
@@ -1465,6 +1498,88 @@ class Game:
         )
 
         self.draw_region_info_panel(stop)
+
+    def draw_hoenn_world_map_base(self):
+        """Paint a Hoenn-style world map backdrop with ocean bands and landforms."""
+        ocean = (83, 165, 223)
+        ocean_dark = (55, 122, 200)
+        sea_cutout = (43, 118, 204)
+        land_dark = (22, 126, 48)
+        land = (64, 178, 46)
+        land_light = (126, 213, 42)
+        highland = (232, 189, 45)
+        sand = (237, 214, 83)
+
+        self.screen.fill(ocean)
+        for y in range(0, SCREEN_HEIGHT, 6):
+            pygame.draw.line(self.screen, ocean_dark, (0, y), (SCREEN_WIDTH, y), 2)
+            pygame.draw.line(self.screen, (112, 190, 235), (0, y + 3), (SCREEN_WIDTH, y + 3), 1)
+
+        mainland = [
+            (26, 92), (72, 64), (106, 24), (174, 10), (226, 36), (282, 32),
+            (352, 72), (410, 78), (482, 112), (552, 94), (650, 126), (714, 146),
+            (702, 194), (636, 194), (584, 230), (516, 220), (462, 274), (390, 264),
+            (330, 314), (250, 292), (210, 336), (138, 318), (98, 366), (44, 330),
+            (68, 272), (22, 230), (42, 176), (20, 138),
+        ]
+        pygame.draw.polygon(self.screen, land_dark, mainland)
+
+        inner_land = [
+            (40, 108), (94, 78), (150, 48), (226, 54), (286, 56), (342, 90),
+            (410, 104), (474, 136), (548, 122), (626, 148), (680, 160),
+            (660, 180), (606, 180), (552, 210), (500, 202), (448, 246),
+            (380, 236), (328, 276), (256, 258), (210, 298), (146, 286),
+            (104, 326), (62, 300), (86, 246), (48, 214), (70, 166),
+        ]
+        pygame.draw.polygon(self.screen, land, inner_land)
+
+        highlands = [
+            [(34, 88), (112, 58), (224, 54), (280, 74), (232, 110), (112, 104), (42, 126)],
+            [(278, 96), (406, 112), (470, 148), (412, 196), (300, 182), (250, 136)],
+            [(70, 190), (178, 170), (278, 190), (238, 252), (118, 248), (54, 220)],
+            [(382, 216), (470, 176), (542, 198), (488, 250), (420, 260)],
+        ]
+        for shape in highlands:
+            pygame.draw.polygon(self.screen, highland, shape)
+        pygame.draw.polygon(self.screen, sand, [(42, 124), (110, 106), (222, 112), (250, 134), (178, 154), (70, 152)])
+        pygame.draw.polygon(self.screen, sand, [(280, 190), (376, 198), (430, 226), (366, 254), (286, 238)])
+
+        sea_rects = [
+            pygame.Rect(548, 202, 140, 96),
+            pygame.Rect(620, 134, 82, 106),
+            pygame.Rect(686, 176, 82, 152),
+            pygame.Rect(520, 302, 118, 78),
+        ]
+        for rect in sea_rects:
+            pygame.draw.rect(self.screen, sea_cutout, rect)
+            for y in range(rect.top, rect.bottom, 6):
+                pygame.draw.line(self.screen, (72, 150, 220), (rect.left, y), (rect.right, y), 1)
+
+        islands = [
+            [(556, 350), (590, 326), (628, 348), (602, 382)],
+            [(640, 462), (674, 448), (704, 468), (690, 496), (652, 492)],
+            [(728, 306), (768, 282), (788, 330), (754, 362)],
+            [(58, 498), (92, 476), (130, 494), (108, 530), (70, 526)],
+            [(476, 456), (506, 422), (538, 462), (516, 500)],
+            [(300, 350), (342, 332), (380, 354), (340, 388)],
+        ]
+        for island in islands:
+            pygame.draw.polygon(self.screen, land_dark, island)
+            pygame.draw.polygon(self.screen, land, [(x + 5, y + 5) for x, y in island])
+
+        highlights = [(204, 132, 28), (260, 184, 22), (184, 222, 20), (512, 172, 20), (584, 356, 18)]
+        for hx, hy, radius in highlights:
+            pygame.draw.circle(self.screen, land_light, (hx, hy), radius)
+            pygame.draw.circle(self.screen, (158, 231, 42), (hx, hy), max(5, radius // 2))
+
+        title_rect = pygame.Rect(430, 10, 336, 70)
+        pygame.draw.rect(self.screen, (31, 151, 72), title_rect)
+        pygame.draw.rect(self.screen, (115, 220, 124), title_rect, 4)
+        title = self.font_medium.render("HOENN MAP FULL VIEW", True, TEXT_WHITE)
+        self.screen.blit(title, (title_rect.x + 24, title_rect.y + 20))
+
+        badge_label = self.font_small.render(f"Badges {len(self.badges)}/8", True, TEXT_WHITE)
+        self.screen.blit(badge_label, (title_rect.x + 216, title_rect.y + 48))
 
     def draw_region_node(self, index, stop):
         """Draw a town, route, cave, or gym marker on the region map."""
@@ -1492,22 +1607,21 @@ class Game:
             self.screen.blit(label, label_rect)
 
     def draw_region_info_panel(self, stop):
-        title_panel = pygame.Rect(54, SCREEN_HEIGHT - 154, SCREEN_WIDTH - 108, 116)
-        self.draw_gba_panel(title_panel, (255, 250, 217))
+        title_panel = pygame.Rect(336, SCREEN_HEIGHT - 118, 410, 88)
+        pygame.draw.rect(self.screen, (96, 96, 125), title_panel)
+        pygame.draw.rect(self.screen, (224, 224, 232), title_panel.inflate(-6, -6))
+        pygame.draw.rect(self.screen, (255, 255, 255), title_panel.inflate(-12, -12))
         title = self.font_medium.render(stop["name"], True, OUTLINE)
         subtitle = self.font_small.render(stop["subtitle"], True, TEXT_BLUE)
-        self.screen.blit(title, (title_panel.x + 24, title_panel.y + 16))
-        self.screen.blit(subtitle, (title_panel.x + 24, title_panel.y + 46))
-        for index, line in enumerate(stop["lines"][:2]):
-            text = self.font_small.render(line, True, OUTLINE)
-            self.screen.blit(text, (title_panel.x + 24, title_panel.y + 72 + index * 20))
+        self.screen.blit(title, (title_panel.x + 20, title_panel.y + 14))
+        self.screen.blit(subtitle, (title_panel.x + 20, title_panel.y + 42))
 
         if stop.get("badge") and stop["badge"] not in self.badges:
             prompt = f"ENTER: win {stop['badge']}"
         else:
-            prompt = "ARROWS: travel  ENTER: visit  B: Bag  P: Pokedex  ESC: Bluebell"
+            prompt = "ARROWS travel  ENTER visit  ESC Bluebell"
         prompt_text = self.font_small.render(prompt, True, TEXT_BLUE)
-        prompt_rect = prompt_text.get_rect(right=title_panel.right - 24, bottom=title_panel.bottom - 14)
+        prompt_rect = prompt_text.get_rect(right=title_panel.right - 18, bottom=title_panel.bottom - 12)
         self.screen.blit(prompt_text, prompt_rect)
 
     def start_route_exploration(self, entry_side="south"):
@@ -2388,18 +2502,6 @@ class Game:
             self.state = STATE_BUILDING
             return
 
-        if event.key == pygame.K_RETURN and self.player_at_route_assist():
-            if not self.professor_rescued:
-                self.state = STATE_ROUTE_EVENT
-                self.event_step = 0
-                self.player_battle_hp = self.player_max_hp
-                self.wild_battle_hp = self.wild_max_hp
-                self.selected_move = 0
-                self.battle_message = ""
-            elif self.trail_unlocked:
-                self.state = STATE_NEXT_TOWN
-            return
-
         new_x, new_y = self.player_x, self.player_y
         
         if event.key == pygame.K_UP:
@@ -2419,6 +2521,11 @@ class Game:
         if not self.is_solid(new_x, new_y):
             self.player_x = new_x
             self.player_y = new_y
+            if self.player_at_route_assist():
+                if not self.professor_rescued:
+                    self.begin_trail_fade(STATE_ROUTE_EVENT)
+                elif self.trail_unlocked:
+                    self.begin_trail_fade(STATE_NEXT_TOWN)
         
         # Update animation
         self.player_anim_timer += 1
@@ -2455,7 +2562,7 @@ class Game:
         """Move around the open region map or visit the selected stop."""
         if event.key == pygame.K_ESCAPE:
             self.state = STATE_TOWN
-            self.player_x, self.player_y = ROUTE_ASSIST_TILE
+            self.player_x, self.player_y = ROUTE_RETURN_TILE
             self.player_direction = "down"
             return
 
@@ -2865,7 +2972,7 @@ class Game:
                     running = False
                 
                 if event.type == pygame.KEYDOWN:
-                    if self.handle_menu_input(event):
+                    if self.state != STATE_TRAIL_FADE and self.handle_menu_input(event):
                         continue
                     if event.key == pygame.K_F11:
                         self.toggle_fullscreen()
@@ -2877,6 +2984,8 @@ class Game:
                         self.handle_name_entry_input(event)
                     elif self.state == STATE_TOWN:
                         self.handle_town_input(event)
+                    elif self.state == STATE_TRAIL_FADE:
+                        pass
                     elif self.state == STATE_BUILDING:
                         self.handle_building_input(event)
                     elif self.state == STATE_ROUTE_EVENT:
@@ -2892,6 +3001,9 @@ class Game:
                     elif self.state == STATE_BATTLE_RESULTS:
                         self.handle_battle_results_input(event)
             
+            if self.state == STATE_TRAIL_FADE:
+                self.update_trail_fade()
+
             # Draw based on current state
             if self.state == STATE_TITLE:
                 self.draw_title_screen()
@@ -2902,6 +3014,8 @@ class Game:
                 self.draw_name_entry_screen()
             elif self.state == STATE_TOWN:
                 self.draw_town()
+            elif self.state == STATE_TRAIL_FADE:
+                self.draw_trail_fade()
             elif self.state == STATE_BUILDING:
                 self.draw_building_interior()
             elif self.state == STATE_ROUTE_EVENT:
