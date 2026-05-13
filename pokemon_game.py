@@ -542,6 +542,8 @@ class Game:
         self.show_bag = False
         self.show_pokedex = False
         self.bag_items = {item_name: 0 for item_name in EVOLUTION_ITEMS}
+        self.bag_items["Potion"] = 5
+        self.bag_items["Poke Ball"] = 8
         self.bag_selection = 0
         self.menu_message = ""
         self.menu_message_timer = 0
@@ -559,6 +561,22 @@ class Game:
         self.previous_state = STATE_ROUTE_EXPLORE
         self.test_region_index = 0
         self.test_region_scroll = 0
+        self.active_wild_name = "poochyena"
+        self.active_wild_level = self.starter_level + 1
+        self.in_wild_battle = False
+        self.battle_intro_timer = 0
+        self.battle_intro_total = 70
+        self.party_pokemon = []
+        self.active_party_index = 0
+        self.selected_battle_action = 0
+        self.battle_submenu = "main"
+        self.battle_bag_selection = 0
+        self.battle_party_selection = 0
+        self.attack_anim_timer = 0
+        self.attack_anim_total = 0
+        self.attack_anim_move = ""
+        self.attack_anim_target = "wild"
+        self.attack_anim_from = "player"
 
     def toggle_fullscreen(self):
         """Switch between fullscreen and a normal 800x600 window."""
@@ -834,6 +852,8 @@ class Game:
         self.starter_name = evolved_name
         self.bag_items[item_name] -= 1
         self.discover_pokemon(self.starter_name)
+        if self.party_pokemon:
+            self.party_pokemon[0] = self.starter_name
         self.set_menu_message(f"{current_name.capitalize()} evolved into {evolved_name.capitalize()}!")
 
     def draw_menu_message(self):
@@ -1447,7 +1467,7 @@ class Game:
         self.screen.blit(title, title.get_rect(center=(SCREEN_WIDTH // 2, 162)))
         level = self.font_medium.render(f"Lv.{self.wild_encounter_level}", True, TEXT_BLUE)
         self.screen.blit(level, level.get_rect(center=(SCREEN_WIDTH // 2, 322)))
-        self.draw_dialog_box(["A wild Pokemon jumped out of the tall grass!", "Press ENTER to let it run back into the route."], "ENTER")
+        self.draw_dialog_box(["A wild Pokemon jumped out of the tall grass!", "Press ENTER to battle it!"], "ENTER")
 
     def draw_sprite_with_shadow(self, name, midbottom):
         sprite = self.pokemon_sprites.get(name)
@@ -1529,9 +1549,40 @@ class Game:
             rect = text.get_rect(center=(int(item["x"]), int(item["y"])))
             self.screen.blit(text, rect)
 
+    def ensure_starter_in_party(self):
+        if not self.starter_name:
+            return
+        if self.starter_name not in self.party_pokemon:
+            self.party_pokemon.insert(0, self.starter_name)
+        if self.active_party_index >= len(self.party_pokemon):
+            self.active_party_index = 0
+
+    def get_active_battle_pokemon_name(self):
+        self.ensure_starter_in_party()
+        if not self.party_pokemon:
+            return self.starter_name or "treecko"
+        return self.party_pokemon[self.active_party_index]
+
+    def get_active_battle_level(self):
+        return max(2, self.starter_level - 1) if self.get_active_battle_pokemon_name() != self.starter_name else self.starter_level
+
+    def get_active_battle_moves(self):
+        name = self.get_active_battle_pokemon_name()
+        if name in STARTER_MOVES:
+            return STARTER_MOVES[name]
+        return [
+            {"name": "Tackle", "power": 5, "accuracy": 95},
+            {"name": "Quick Attack", "power": 5, "accuracy": 100},
+            {"name": "Bite", "power": 6, "accuracy": 92},
+            {"name": "Growl", "power": 3, "accuracy": 100},
+        ]
+
     def draw_battle_scene(self):
         """Draw a separate, more dimensional Pokemon-style battle screen."""
-        starter = self.starter_name.capitalize()
+        active_name = self.get_active_battle_pokemon_name()
+        starter = active_name.capitalize()
+        wild_name = self.active_wild_name.capitalize()
+        wild_level = self.active_wild_level
         self.update_floating_texts()
 
         self.screen.fill(SAPPHIRE_LIGHT)
@@ -1556,32 +1607,84 @@ class Game:
 
         self.draw_battle_platform((560, 236), (210, 70), (121, 214, 126), (70, 159, 98))
         self.draw_battle_platform((238, 358), (260, 88), (121, 214, 126), (70, 159, 98))
-        self.draw_battle_pokemon("poochyena", (560, 224), 86)
-        self.draw_battle_pokemon(self.starter_name, (238, 342), 122)
-        wild_level = self.starter_level + 1
-        self.draw_hp_bar(72, 104, starter, self.starter_level, self.player_battle_hp, self.player_max_hp)
-        self.draw_hp_bar(526, 86, "Poochyena", wild_level, self.wild_battle_hp, self.wild_max_hp)
+        self.draw_battle_pokemon(self.active_wild_name, (560, 224), 86)
+        if self.battle_intro_timer <= 0:
+            self.draw_battle_pokemon(active_name, (238, 342), 122)
+        self.draw_hp_bar(72, 104, starter, self.get_active_battle_level(), self.player_battle_hp, self.player_max_hp)
+        self.draw_hp_bar(526, 86, wild_name, wild_level, self.wild_battle_hp, self.wild_max_hp)
+
+        if self.battle_intro_timer > 0:
+            self.draw_battle_intro_animation(starter)
+            self.battle_intro_timer -= 1
+        if self.attack_anim_timer > 0:
+            self.draw_attack_animation()
+            self.attack_anim_timer -= 1
 
         command_box = pygame.Rect(48, 410, SCREEN_WIDTH - 96, 138)
         self.draw_gba_panel(command_box)
 
-        if self.event_step == 3:
-            prompt = self.font_medium.render(f"What will {starter} do?", True, OUTLINE)
-            self.screen.blit(prompt, (command_box.x + 24, command_box.y + 18))
-            moves = STARTER_MOVES[self.starter_name]
-            for index, move in enumerate(moves):
-                col = index % 2
-                row = index // 2
-                move_rect = pygame.Rect(command_box.x + 300 + col * 170, command_box.y + 14 + row * 50, 150, 40)
-                selected = index == self.selected_move
-                color = (255, 248, 207) if selected else (233, 244, 255)
-                outline = TEXT_GOLD if selected else OUTLINE
-                self.draw_rounded_rect(move_rect, color, radius=7, outline_color=outline, outline_width=2)
-                move_text = self.font_small.render(move["name"], True, OUTLINE)
-                self.screen.blit(move_text, (move_rect.x + 10, move_rect.y + 4))
-                dmg_text = self.font_small.render(f"DMG {move['power']}", True, TEXT_BLUE)
-                dmg_rect = dmg_text.get_rect(right=move_rect.right - 10, bottom=move_rect.bottom - 3)
-                self.screen.blit(dmg_text, dmg_rect)
+        if self.battle_intro_timer > 0:
+            intro_text = self.font_medium.render(f"{starter}, I choose you!", True, OUTLINE)
+            self.screen.blit(intro_text, (command_box.x + 24, command_box.y + 34))
+        elif self.event_step == 3:
+            if self.battle_submenu == "main":
+                prompt = self.font_medium.render(f"What will {starter} do?", True, OUTLINE)
+                self.screen.blit(prompt, (command_box.x + 24, command_box.y + 18))
+                actions = ["Fight", "Bag", "Run", "Pokemon"]
+                for index, action in enumerate(actions):
+                    col = index % 2
+                    row = index // 2
+                    action_rect = pygame.Rect(command_box.x + 300 + col * 170, command_box.y + 14 + row * 50, 150, 40)
+                    selected = index == self.selected_battle_action
+                    color = (255, 248, 207) if selected else (233, 244, 255)
+                    outline = TEXT_GOLD if selected else OUTLINE
+                    self.draw_rounded_rect(action_rect, color, radius=7, outline_color=outline, outline_width=2)
+                    label = self.font_medium.render(action, True, OUTLINE)
+                    self.screen.blit(label, (action_rect.x + 12, action_rect.y + 6))
+            elif self.battle_submenu == "fight":
+                prompt = self.font_medium.render(f"Choose a move for {starter}:", True, OUTLINE)
+                self.screen.blit(prompt, (command_box.x + 24, command_box.y + 18))
+                moves = self.get_active_battle_moves()
+                for index, move in enumerate(moves):
+                    col = index % 2
+                    row = index // 2
+                    move_rect = pygame.Rect(command_box.x + 300 + col * 170, command_box.y + 14 + row * 50, 150, 40)
+                    selected = index == self.selected_move
+                    color = (255, 248, 207) if selected else (233, 244, 255)
+                    outline = TEXT_GOLD if selected else OUTLINE
+                    self.draw_rounded_rect(move_rect, color, radius=7, outline_color=outline, outline_width=2)
+                    move_text = self.font_small.render(move["name"], True, OUTLINE)
+                    self.screen.blit(move_text, (move_rect.x + 10, move_rect.y + 4))
+                    dmg_text = self.font_small.render(f"DMG {move['power']}", True, TEXT_BLUE)
+                    dmg_rect = dmg_text.get_rect(right=move_rect.right - 10, bottom=move_rect.bottom - 3)
+                    self.screen.blit(dmg_text, dmg_rect)
+            elif self.battle_submenu == "bag":
+                items = ["Potion", "Poke Ball"]
+                bag_title = self.font_medium.render("Bag", True, OUTLINE)
+                self.screen.blit(bag_title, (command_box.x + 24, command_box.y + 18))
+                for idx, item in enumerate(items):
+                    row_rect = pygame.Rect(command_box.x + 200, command_box.y + 16 + idx * 48, 260, 40)
+                    selected = idx == self.battle_bag_selection
+                    color = (255, 248, 207) if selected else (233, 244, 255)
+                    outline = TEXT_GOLD if selected else OUTLINE
+                    self.draw_rounded_rect(row_rect, color, radius=7, outline_color=outline, outline_width=2)
+                    text = self.font_small.render(f"{item} x{self.bag_items.get(item, 0)}", True, OUTLINE)
+                    self.screen.blit(text, (row_rect.x + 12, row_rect.y + 9))
+                hint = self.font_small.render("ENTER use  ESC back", True, TEXT_BLUE)
+                self.screen.blit(hint, (command_box.x + 24, command_box.bottom - 28))
+            elif self.battle_submenu == "pokemon":
+                party_title = self.font_medium.render("Choose Pokemon", True, OUTLINE)
+                self.screen.blit(party_title, (command_box.x + 24, command_box.y + 18))
+                for idx, name in enumerate(self.party_pokemon[:4]):
+                    row_rect = pygame.Rect(command_box.x + 200, command_box.y + 10 + idx * 31, 260, 28)
+                    selected = idx == self.battle_party_selection
+                    color = (255, 248, 207) if selected else (233, 244, 255)
+                    outline = TEXT_GOLD if selected else OUTLINE
+                    self.draw_rounded_rect(row_rect, color, radius=6, outline_color=outline, outline_width=2)
+                    text = self.font_small.render(name.capitalize(), True, OUTLINE)
+                    self.screen.blit(text, (row_rect.x + 10, row_rect.y + 5))
+                hint = self.font_small.render("ENTER switch  ESC back", True, TEXT_BLUE)
+                self.screen.blit(hint, (command_box.x + 24, command_box.bottom - 28))
         else:
             lines = self.battle_message.split("\n")
             for index, line in enumerate(lines):
@@ -1591,6 +1694,136 @@ class Game:
             prompt_rect = prompt.get_rect(right=command_box.right - 24, bottom=command_box.bottom - 16)
             self.screen.blit(prompt, prompt_rect)
         self.draw_floating_texts()
+
+    def draw_battle_intro_animation(self, starter):
+        """Animate trainer throw, ball open, and Pokemon send-out."""
+        progress = (self.battle_intro_total - self.battle_intro_timer) / max(1, self.battle_intro_total)
+        progress = max(0.0, min(1.0, progress))
+
+        trainer_x = int(80 + 36 * min(1.0, progress * 1.2))
+        trainer_y = 328
+        pygame.draw.circle(self.screen, (239, 214, 191), (trainer_x + 18, trainer_y - 24), 12)
+        pygame.draw.rect(self.screen, PLAYER_COLOR, (trainer_x + 8, trainer_y - 10, 20, 32), border_radius=5)
+        pygame.draw.rect(self.screen, (59, 74, 104), (trainer_x + 4, trainer_y + 18, 10, 16), border_radius=3)
+        pygame.draw.rect(self.screen, (59, 74, 104), (trainer_x + 22, trainer_y + 18, 10, 16), border_radius=3)
+
+        ball_origin = (trainer_x + 28, 300)
+        ball_target = (238, 316)
+        throw_end = 0.56
+        open_end = 0.76
+
+        if progress <= throw_end:
+            t = progress / throw_end
+            ball_x = int(ball_origin[0] + (ball_target[0] - ball_origin[0]) * t)
+            parabola = 4 * t * (1 - t)
+            ball_y = int(ball_origin[1] + (ball_target[1] - ball_origin[1]) * t - 110 * parabola)
+            self.draw_pokeball_sprite(ball_x, ball_y, 8, seam_angle=18 * (1 - t))
+        elif progress <= open_end:
+            t = (progress - throw_end) / max(0.001, (open_end - throw_end))
+            ball_x, ball_y = ball_target
+            lid_offset = int(12 * t)
+            pygame.draw.circle(self.screen, OUTLINE, (ball_x, ball_y), 9, 2)
+            pygame.draw.circle(self.screen, (248, 248, 248), (ball_x, ball_y + 3), 8)
+            pygame.draw.circle(self.screen, (242, 66, 66), (ball_x, ball_y - 3 - lid_offset), 8)
+            for r in (16, 26, 36):
+                pygame.draw.circle(self.screen, (255, 245, 190), (ball_x, ball_y - 2), int(r * t), 2)
+        else:
+            t = (progress - open_end) / max(0.001, (1.0 - open_end))
+            pulse = 1.0 + 0.5 * t
+            ring = pygame.Rect(0, 0, int(92 * pulse), int(38 * pulse))
+            ring.center = (238, 340)
+            pygame.draw.ellipse(self.screen, (252, 246, 179), ring, 3)
+            glow_radius = int(24 + 40 * t)
+            pygame.draw.circle(self.screen, (255, 245, 210), (238, 328), glow_radius, 2)
+
+    def draw_pokeball_sprite(self, x, y, radius, seam_angle=0):
+        pygame.draw.circle(self.screen, OUTLINE, (x, y), radius + 1)
+        pygame.draw.circle(self.screen, (242, 66, 66), (x, y - 1), radius)
+        pygame.draw.circle(self.screen, (248, 248, 248), (x, y + 2), radius - 1)
+        pygame.draw.line(self.screen, OUTLINE, (x - radius, y), (x + radius, y), 2)
+        seam_dx = int(radius * 0.7 * (seam_angle / 18.0))
+        pygame.draw.circle(self.screen, OUTLINE, (x + seam_dx, y), 3, 2)
+        pygame.draw.circle(self.screen, (240, 240, 240), (x + seam_dx, y), 2)
+
+    def start_attack_animation(self, move_name, target="wild", from_side="player"):
+        self.attack_anim_move = move_name.lower()
+        self.attack_anim_target = target
+        self.attack_anim_from = from_side
+        self.attack_anim_total = 28
+        self.attack_anim_timer = self.attack_anim_total
+
+    def draw_attack_animation(self):
+        if self.attack_anim_timer <= 0:
+            return
+        progress = 1.0 - self.attack_anim_timer / max(1, self.attack_anim_total)
+        target_pos = (560, 224) if self.attack_anim_target == "wild" else (238, 342)
+        source_pos = (238, 342) if self.attack_anim_from == "player" else (560, 224)
+        move = self.attack_anim_move
+
+        if "ember" in move or "fire" in move:
+            for i in range(5):
+                t = max(0.0, min(1.0, progress - i * 0.08))
+                x = int(source_pos[0] + (target_pos[0] - source_pos[0]) * t)
+                y = int(source_pos[1] + (target_pos[1] - source_pos[1]) * t - 22 * (1 - t) * t)
+                pygame.draw.circle(self.screen, (255, 130, 52), (x, y), 6)
+                pygame.draw.circle(self.screen, (255, 213, 120), (x, y), 3)
+        elif "water" in move:
+            for i in range(6):
+                t = max(0.0, min(1.0, progress - i * 0.05))
+                x = int(source_pos[0] + (target_pos[0] - source_pos[0]) * t)
+                y = int(source_pos[1] + (target_pos[1] - source_pos[1]) * t + 12 * ((i % 2) * 2 - 1))
+                pygame.draw.circle(self.screen, (105, 208, 252), (x, y), 4)
+        elif "absorb" in move:
+            for i in range(5):
+                t = max(0.0, min(1.0, progress - i * 0.06))
+                x = int(target_pos[0] + (source_pos[0] - target_pos[0]) * t)
+                y = int(target_pos[1] + (source_pos[1] - target_pos[1]) * t)
+                pygame.draw.circle(self.screen, (96, 224, 124), (x, y), 5)
+        elif "quick" in move:
+            dash_t = min(1.0, progress * 1.6)
+            x = int(source_pos[0] + (target_pos[0] - source_pos[0]) * dash_t)
+            y = int(source_pos[1] + (target_pos[1] - source_pos[1]) * dash_t)
+            pygame.draw.line(self.screen, (255, 255, 255), source_pos, (x, y), 5)
+            pygame.draw.line(self.screen, (187, 236, 255), source_pos, (x, y), 2)
+        elif "scratch" in move or "slash" in move or "bite" in move:
+            for i in range(3):
+                offset = i * 10 - 10
+                slash = pygame.Rect(0, 0, 54, 12)
+                slash.center = (target_pos[0] + offset, target_pos[1] - 18 + offset // 2)
+                pygame.draw.line(self.screen, (255, 244, 186), slash.topleft, slash.bottomright, 3)
+                pygame.draw.line(self.screen, (255, 255, 255), (slash.x + 8, slash.y), (slash.right, slash.bottom - 8), 2)
+        elif "growl" in move or "leer" in move:
+            for i in range(3):
+                radius = int(18 + progress * 52 + i * 12)
+                pygame.draw.circle(self.screen, (255, 241, 178), source_pos, radius, 2)
+        elif "mud" in move:
+            for i in range(6):
+                t = max(0.0, min(1.0, progress - i * 0.05))
+                x = int(source_pos[0] + (target_pos[0] - source_pos[0]) * t)
+                y = int(source_pos[1] + (target_pos[1] - source_pos[1]) * t + 20 * (1 - t))
+                pygame.draw.circle(self.screen, (153, 111, 70), (x, y), 4)
+        else:
+            impact = int(10 + 18 * (1 - abs(progress - 0.55) * 2))
+            pygame.draw.circle(self.screen, (255, 245, 190), target_pos, max(6, impact), 2)
+
+    def start_wild_battle(self):
+        """Enter a mandatory wild battle after an encounter."""
+        self.ensure_starter_in_party()
+        self.active_wild_name = self.wild_encounter_name or "poochyena"
+        self.active_wild_level = self.wild_encounter_level
+        self.discover_pokemon(self.active_wild_name)
+        self.in_wild_battle = True
+        self.player_battle_hp = self.player_max_hp
+        self.wild_max_hp = 10 + self.active_wild_level * 2
+        self.wild_battle_hp = self.wild_max_hp
+        self.selected_move = 0
+        self.floating_texts = []
+        self.event_step = 3
+        self.battle_intro_timer = self.battle_intro_total
+        self.battle_submenu = "main"
+        self.selected_battle_action = 0
+        self.battle_message = f"A wild {self.active_wild_name.capitalize()} appeared!"
+        self.state = STATE_BATTLE
 
     def draw_route_event(self):
         """Draw the rescue sequence on the northern route."""
@@ -1683,6 +1916,7 @@ class Game:
         """Skip story setup and begin testing at a chosen region stop."""
         self.player_name = "TESTER"
         self.starter_name = self.starter_name or STARTER_NAMES[self.starter_choice]
+        self.ensure_starter_in_party()
         self.starter_level = max(self.starter_level, 12)
         self.player_max_hp = 28
         self.player_battle_hp = self.player_max_hp
@@ -1774,6 +2008,7 @@ class Game:
                 self.starter_name = STARTER_NAMES[self.starter_choice]
                 self.starter_level = 5
                 self.discover_pokemon(self.starter_name)
+                self.ensure_starter_in_party()
         elif event.key == pygame.K_RETURN:
             if self.current_building and self.current_building["kind"] == "lab" and self.professor_rescued:
                 self.trail_unlocked = True
@@ -1905,8 +2140,8 @@ class Game:
         self.state = STATE_WILD_ENCOUNTER
 
     def handle_wild_encounter_input(self, event):
-        if event.key in (pygame.K_RETURN, pygame.K_ESCAPE):
-            self.state = self.previous_state
+        if event.key == pygame.K_RETURN:
+            self.start_wild_battle()
 
     def handle_route_event_input(self, event):
         """Advance the northern route rescue event."""
@@ -1922,6 +2157,7 @@ class Game:
             elif event.key == pygame.K_RETURN:
                 self.starter_name = STARTER_NAMES[self.starter_choice]
                 self.discover_pokemon(self.starter_name)
+                self.ensure_starter_in_party()
                 self.event_step = 2
             return
 
@@ -1930,6 +2166,12 @@ class Game:
                 self.event_step = 1
             elif self.event_step == 2:
                 self.event_step = 3
+                self.active_wild_name = "poochyena"
+                self.active_wild_level = self.starter_level + 1
+                self.in_wild_battle = False
+                self.battle_intro_timer = self.battle_intro_total
+                self.battle_submenu = "main"
+                self.selected_battle_action = 0
                 self.state = STATE_BATTLE
             else:
                 self.handle_starter_level_up()
@@ -1941,17 +2183,63 @@ class Game:
 
     def handle_battle_input(self, event):
         """Handle the separate move-selection battle screen."""
+        if self.battle_intro_timer > 0 or self.attack_anim_timer > 0:
+            return
         if self.event_step == 3:
-            if event.key == pygame.K_LEFT:
-                self.selected_move = self.selected_move - 1 if self.selected_move % 2 == 1 else self.selected_move + 1
-            elif event.key == pygame.K_RIGHT:
-                self.selected_move = self.selected_move + 1 if self.selected_move % 2 == 0 else self.selected_move - 1
-            elif event.key == pygame.K_UP:
-                self.selected_move = (self.selected_move - 2) % 4
-            elif event.key == pygame.K_DOWN:
-                self.selected_move = (self.selected_move + 2) % 4
-            elif event.key == pygame.K_RETURN:
-                self.use_selected_move()
+            if self.battle_submenu == "main":
+                if event.key == pygame.K_LEFT:
+                    self.selected_battle_action = self.selected_battle_action - 1 if self.selected_battle_action % 2 == 1 else self.selected_battle_action + 1
+                elif event.key == pygame.K_RIGHT:
+                    self.selected_battle_action = self.selected_battle_action + 1 if self.selected_battle_action % 2 == 0 else self.selected_battle_action - 1
+                elif event.key == pygame.K_UP:
+                    self.selected_battle_action = (self.selected_battle_action - 2) % 4
+                elif event.key == pygame.K_DOWN:
+                    self.selected_battle_action = (self.selected_battle_action + 2) % 4
+                elif event.key == pygame.K_RETURN:
+                    if self.selected_battle_action == 0:
+                        self.battle_submenu = "fight"
+                    elif self.selected_battle_action == 1:
+                        self.battle_submenu = "bag"
+                    elif self.selected_battle_action == 2:
+                        if self.in_wild_battle:
+                            self.battle_message = "You ran away safely!"
+                            self.event_step = 6
+                        else:
+                            self.battle_message = "You can't run from this battle!"
+                            self.event_step = 5
+                    elif self.selected_battle_action == 3:
+                        self.battle_submenu = "pokemon"
+                        self.battle_party_selection = self.active_party_index
+            elif self.battle_submenu == "fight":
+                if event.key == pygame.K_LEFT:
+                    self.selected_move = self.selected_move - 1 if self.selected_move % 2 == 1 else self.selected_move + 1
+                elif event.key == pygame.K_RIGHT:
+                    self.selected_move = self.selected_move + 1 if self.selected_move % 2 == 0 else self.selected_move - 1
+                elif event.key == pygame.K_UP:
+                    self.selected_move = (self.selected_move - 2) % 4
+                elif event.key == pygame.K_DOWN:
+                    self.selected_move = (self.selected_move + 2) % 4
+                elif event.key == pygame.K_ESCAPE:
+                    self.battle_submenu = "main"
+                elif event.key == pygame.K_RETURN:
+                    self.use_selected_move()
+            elif self.battle_submenu == "bag":
+                if event.key in (pygame.K_UP, pygame.K_DOWN):
+                    self.battle_bag_selection = 1 - self.battle_bag_selection
+                elif event.key == pygame.K_ESCAPE:
+                    self.battle_submenu = "main"
+                elif event.key == pygame.K_RETURN:
+                    self.use_selected_battle_bag_item()
+            elif self.battle_submenu == "pokemon":
+                if event.key == pygame.K_UP:
+                    self.battle_party_selection = max(0, self.battle_party_selection - 1)
+                elif event.key == pygame.K_DOWN:
+                    max_index = min(3, max(0, len(self.party_pokemon) - 1))
+                    self.battle_party_selection = min(max_index, self.battle_party_selection + 1)
+                elif event.key == pygame.K_ESCAPE:
+                    self.battle_submenu = "main"
+                elif event.key == pygame.K_RETURN:
+                    self.switch_battle_pokemon()
             return
 
         if event.key == pygame.K_RETURN:
@@ -1962,14 +2250,22 @@ class Game:
                     self.wild_pokemon_turn()
             elif self.event_step == 5:
                 self.event_step = 3
+                self.battle_submenu = "main"
             elif self.event_step == 6:
-                self.event_step = 7
-                self.state = STATE_ROUTE_EVENT
+                if self.in_wild_battle:
+                    self.in_wild_battle = False
+                    self.state = STATE_ROUTE_EXPLORE
+                else:
+                    self.event_step = 7
+                    self.state = STATE_ROUTE_EVENT
+                self.battle_submenu = "main"
 
     def use_selected_move(self):
         """Apply the chosen starter move during battle."""
-        move = STARTER_MOVES[self.starter_name][self.selected_move]
-        starter = self.starter_name.capitalize()
+        move = self.get_active_battle_moves()[self.selected_move]
+        starter = self.get_active_battle_pokemon_name().capitalize()
+        wild_name = self.active_wild_name.capitalize()
+        self.start_attack_animation(move["name"], target="wild", from_side="player")
 
         accuracy = move.get("accuracy", 100)
         if random.randint(1, 100) > accuracy:
@@ -1994,28 +2290,31 @@ class Game:
             if drained_hp > 0:
                 self.battle_message = (
                     f"{starter} used {move['name']}!\n"
-                    f"{starter} drained {drained_hp} HP! Wild Poochyena ran away!"
+                    f"{starter} drained {drained_hp} HP! Wild {wild_name} fainted!"
                 )
             else:
-                self.battle_message = f"{starter} used {move['name']}!\nWild Poochyena ran away!"
+                self.battle_message = f"{starter} used {move['name']}!\nWild {wild_name} fainted!"
             self.event_step = 6
         else:
             if drained_hp > 0:
                 self.battle_message = (
                     f"{starter} used {move['name']}!\n"
-                    f"Wild Poochyena took damage! {starter} drained {drained_hp} HP!"
+                    f"Wild {wild_name} took damage! {starter} drained {drained_hp} HP!"
                 )
             else:
-                self.battle_message = f"{starter} used {move['name']}!\nWild Poochyena took damage!"
+                self.battle_message = f"{starter} used {move['name']}!\nWild {wild_name} took damage!"
             self.event_step = 4
+        self.battle_submenu = "main"
 
     def wild_pokemon_turn(self):
         """Apply the wild Pokemon's response after the player attacks."""
+        wild_name = self.active_wild_name.capitalize()
         wild_move_name = "Tackle"
         wild_move_power = 4
         wild_move_accuracy = 90
+        self.start_attack_animation(wild_move_name, target="player", from_side="wild")
         if random.randint(1, 100) > wild_move_accuracy:
-            self.battle_message = f"Wild Poochyena used {wild_move_name}!\nBut it missed! Choose your next move."
+            self.battle_message = f"Wild {wild_name} used {wild_move_name}!\nBut it missed! Choose your next move."
             self.event_step = 5
             return
 
@@ -2024,8 +2323,72 @@ class Game:
         damage_taken = hp_before - self.player_battle_hp
         if damage_taken > 0:
             self.add_floating_text(f"-{damage_taken} HP", (238, 294), (212, 52, 52))
-        self.battle_message = f"Wild Poochyena used {wild_move_name}!\nChoose your next move."
+        if self.player_battle_hp == 0 and self.in_wild_battle:
+            self.battle_message = f"Wild {wild_name} used {wild_move_name}!\nYou rushed back to safety."
+            self.event_step = 6
+            return
+        self.battle_message = f"Wild {wild_name} used {wild_move_name}!\nChoose your next move."
         self.event_step = 5
+
+    def try_catch_wild_pokemon(self):
+        """Attempt to catch the active wild Pokemon with a basic HP-based chance."""
+        wild_name = self.active_wild_name.capitalize()
+        hp_ratio = self.wild_battle_hp / max(1, self.wild_max_hp)
+        catch_chance = 0.24 + (1.0 - hp_ratio) * 0.55 - max(0, self.active_wild_level - self.starter_level) * 0.015
+        catch_chance = max(0.08, min(0.82, catch_chance))
+        if random.random() <= catch_chance:
+            self.discover_pokemon(self.active_wild_name)
+            if self.active_wild_name not in self.party_pokemon:
+                self.party_pokemon.append(self.active_wild_name)
+            self.battle_message = f"You threw a Poke Ball!\nGotcha! {wild_name} was caught!"
+            self.event_step = 6
+        else:
+            self.battle_message = f"You threw a Poke Ball!\n{wild_name} broke free!"
+            self.event_step = 4
+
+    def use_selected_battle_bag_item(self):
+        items = ["Potion", "Poke Ball"]
+        item_name = items[self.battle_bag_selection]
+        count = self.bag_items.get(item_name, 0)
+        if count <= 0:
+            self.battle_message = f"No {item_name}s left!"
+            self.event_step = 5
+            self.battle_submenu = "main"
+            return
+        if item_name == "Potion":
+            heal_amount = 12
+            old_hp = self.player_battle_hp
+            self.player_battle_hp = min(self.player_max_hp, self.player_battle_hp + heal_amount)
+            healed = self.player_battle_hp - old_hp
+            self.bag_items[item_name] -= 1
+            self.battle_message = f"You used a Potion!\nRecovered {healed} HP."
+            self.event_step = 4
+            self.battle_submenu = "main"
+            return
+        if item_name == "Poke Ball":
+            if not self.in_wild_battle:
+                self.battle_message = "No wild Pokemon to catch!"
+                self.event_step = 5
+                self.battle_submenu = "main"
+                return
+            self.bag_items[item_name] -= 1
+            self.try_catch_wild_pokemon()
+            self.battle_submenu = "main"
+
+    def switch_battle_pokemon(self):
+        if not self.party_pokemon:
+            self.battle_submenu = "main"
+            return
+        if self.battle_party_selection == self.active_party_index:
+            self.battle_message = f"{self.party_pokemon[self.active_party_index].capitalize()} is already out!"
+            self.event_step = 5
+            self.battle_submenu = "main"
+            return
+        self.active_party_index = self.battle_party_selection
+        new_name = self.get_active_battle_pokemon_name().capitalize()
+        self.battle_message = f"Come back!\nGo, {new_name}!"
+        self.event_step = 4
+        self.battle_submenu = "main"
     def handle_starter_level_up(self):
         """Grant one level after the route battle and evolve if threshold is reached."""
         if not self.starter_name:
