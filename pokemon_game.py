@@ -82,6 +82,7 @@ TILE_BUILDING = 2
 TILE_TREE = 3
 TILE_WATER = 4
 TILE_TALL_GRASS = 5
+TILE_LEDGE = 6
 
 # Create the town map (20x15), sized to fill the 800x600 play canvas.
 TOWN_MAP = [
@@ -101,6 +102,33 @@ TOWN_MAP = [
     [3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
     [3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3],
 ]
+
+# The northern trail rescue scene, arranged to echo early Hoenn route screens:
+# dense tree borders, tall-grass pockets, a small sign, pale clearings, and ledges.
+STARTING_TRAIL_MAP = [
+    [3, 3, 3, 3, 0, 0, 0, 0, 3, 3, 3, 3, 3, 0, 0, 0, 3, 3, 3, 3],
+    [3, 5, 5, 5, 5, 0, 0, 0, 0, 3, 3, 5, 5, 5, 5, 0, 0, 3, 3, 3],
+    [3, 5, 5, 5, 5, 0, 0, 0, 0, 0, 3, 5, 5, 5, 5, 0, 0, 0, 3, 3],
+    [3, 5, 5, 5, 5, 0, 0, 0, 0, 0, 3, 5, 5, 5, 5, 0, 0, 0, 0, 3],
+    [3, 3, 3, 0, 0, 0, 6, 6, 6, 6, 6, 3, 3, 0, 0, 0, 0, 0, 0, 3],
+    [3, 0, 0, 0, 0, 0, 6, 0, 0, 0, 6, 3, 0, 0, 0, 0, 0, 0, 0, 3],
+    [3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3],
+    [3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 5, 0, 3],
+    [3, 3, 3, 0, 0, 0, 0, 0, 0, 6, 6, 6, 0, 0, 0, 5, 5, 5, 0, 3],
+    [3, 5, 5, 5, 5, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 5, 5, 5, 0, 3],
+    [3, 5, 5, 5, 5, 0, 0, 0, 0, 0, 0, 3, 3, 0, 0, 0, 0, 0, 3, 3],
+    [3, 5, 5, 5, 5, 0, 0, 0, 0, 0, 0, 3, 3, 3, 0, 0, 0, 3, 3, 3],
+    [3, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 3, 3],
+    [3, 3, 3, 3, 3, 0, 0, 0, 5, 5, 5, 5, 0, 0, 0, 3, 3, 3, 3, 3],
+    [3, 3, 3, 3, 3, 3, 0, 0, 5, 5, 5, 5, 0, 0, 3, 3, 3, 3, 3, 3],
+]
+STARTING_TRAIL_CLEARINGS = {
+    (6, 0), (7, 0),
+    (16, 3), (17, 3), (16, 4), (17, 4), (18, 4),
+    (4, 6), (5, 6), (6, 6), (4, 7), (5, 7), (6, 7), (7, 7),
+    (5, 8), (6, 8), (7, 8),
+    (12, 8), (13, 8), (12, 9), (13, 9),
+}
 
 # Solid tiles that player cannot walk through
 SOLID_TILES = {TILE_TREE, TILE_WATER}
@@ -130,6 +158,7 @@ STONE_FIND_SOURCES = {
 }
 ROUTE_ASSIST_TILES = {(6, 0), (7, 0), (8, 0)}
 ROUTE_RETURN_TILE = (7, 0)
+NORTH_TRAIL_ROUTE_INDEX = 1
 STARTER_MOVES = {
     "treecko": [
         {"name": "Pound", "power": 6, "accuracy": 95},
@@ -731,6 +760,9 @@ class Game:
             self.battle_message = ""
         elif destination == STATE_NEXT_TOWN:
             self.state = STATE_NEXT_TOWN
+        elif destination == STATE_ROUTE_EXPLORE:
+            self.region_index = NORTH_TRAIL_ROUTE_INDEX
+            self.start_route_exploration("south")
         else:
             self.state = STATE_TOWN
 
@@ -824,6 +856,15 @@ class Game:
             if (x * 7 + y * 5) % 6 == 0:
                 pygame.draw.circle(self.screen, FLOWER_YELLOW, (pixel_x + 24, pixel_y + 10), 2)
 
+        elif tile_type == TILE_LEDGE:
+            self.draw_grass_base(pixel_x, pixel_y, x, y)
+            ledge_top = pixel_y + 22
+            pygame.draw.rect(self.screen, (167, 93, 93), (pixel_x, ledge_top, TILE_SIZE, 8))
+            pygame.draw.rect(self.screen, (125, 68, 85), (pixel_x, ledge_top + 8, TILE_SIZE, 5))
+            pygame.draw.line(self.screen, (218, 128, 109), (pixel_x + 2, ledge_top + 1), (pixel_x + TILE_SIZE - 3, ledge_top + 1), 2)
+            if x % 2 == 0:
+                pygame.draw.rect(self.screen, (109, 63, 79), (pixel_x + 5, ledge_top + 8, 10, 4))
+
     def draw_grass_base(self, pixel_x, pixel_y, tile_x, tile_y):
         """Paint a calm grass tile with sparse handheld texture."""
         color = GRASS if (tile_x + tile_y) % 2 == 0 else GRASS_LIGHT
@@ -915,6 +956,22 @@ class Game:
             pygame.draw.rect(self.screen, FLOWER_PINK, (cx - 4, cy - 2, 4, 4))
             pygame.draw.rect(self.screen, FLOWER_PINK, (cx + 1, cy - 2, 4, 4))
             pygame.draw.rect(self.screen, FLOWER_YELLOW, (cx - 1, cy - 1, 3, 3))
+
+    def draw_starting_trail_scene(self):
+        """Draw the reference-style northern starting trail."""
+        for y in range(MAP_HEIGHT):
+            for x in range(MAP_WIDTH):
+                self.draw_tile(x, y, STARTING_TRAIL_MAP[y][x])
+
+        mist = (178, 226, 194)
+        mist_edge = (132, 205, 166)
+        for tile_x, tile_y in STARTING_TRAIL_CLEARINGS:
+            px = MAP_OFFSET_X + tile_x * TILE_SIZE
+            py = MAP_OFFSET_Y + tile_y * TILE_SIZE
+            pygame.draw.rect(self.screen, mist, (px + 2, py + 2, TILE_SIZE - 4, TILE_SIZE - 4), border_radius=7)
+            pygame.draw.rect(self.screen, mist_edge, (px + 2, py + 2, TILE_SIZE - 4, TILE_SIZE - 4), 1, border_radius=7)
+
+        self.draw_small_sign(5, 7)
 
     def draw_town_details(self):
         """Place small decorations after the main buildings."""
@@ -1426,7 +1483,7 @@ class Game:
         elif self.player_at_route_assist() and self.state == STATE_TOWN and not self.professor_rescued:
             self.draw_dialog_box(["You hear the professor shouting up ahead!", "The trail pulls you forward."], "ARROWS")
         elif self.player_at_route_assist() and self.state == STATE_TOWN and self.trail_unlocked:
-            self.draw_dialog_box(["The north trail opens onto connected routes.", "Step onto it to travel the region."], "ARROWS")
+            self.draw_dialog_box(["The north trail opens onto connected routes.", "Step onto it to walk the route."], "ARROWS")
         elif self.player_at_route_assist() and self.professor_rescued:
             starter = self.starter_name.capitalize() if self.starter_name else "starter"
             self.draw_dialog_box([f"The northern route is calm again.", f"Visit the lab with {starter} first."], "ENTER")
@@ -2377,24 +2434,16 @@ class Game:
 
     def draw_route_event(self):
         """Draw the rescue sequence on the northern route."""
-        self.screen.fill((122, 203, 151))
-        for y in range(0, SCREEN_HEIGHT, TILE_SIZE):
-            for x in range(0, SCREEN_WIDTH, TILE_SIZE):
-                color = GRASS if (x // TILE_SIZE + y // TILE_SIZE) % 2 == 0 else GRASS_LIGHT
-                pygame.draw.rect(self.screen, color, (x, y, TILE_SIZE, TILE_SIZE))
-        pygame.draw.rect(self.screen, PATH, (0, 250, SCREEN_WIDTH, 74), border_radius=18)
-        for x in range(40, SCREEN_WIDTH, 86):
-            pygame.draw.circle(self.screen, TREE_DARK, (x, 88), 24)
-            pygame.draw.circle(self.screen, TREE, (x + 8, 82), 18)
+        self.draw_starting_trail_scene()
 
-        professor_x = 350 if self.event_step < 4 else 230
-        professor_y = 226 if self.event_step < 4 else 238
+        professor_x = 342 if self.event_step < 4 else 230
+        professor_y = 214 if self.event_step < 4 else 238
         pygame.draw.circle(self.screen, (239, 214, 191), (professor_x + 16, professor_y - 16), 17)
         pygame.draw.rect(self.screen, (94, 171, 230), (professor_x, professor_y, 32, 46), border_radius=8)
         professor_label = self.font_small.render("PROF.", True, OUTLINE)
         self.screen.blit(professor_label, (professor_x - 4, professor_y + 52))
 
-        self.draw_sprite_with_shadow("poochyena", (494, 304))
+        self.draw_sprite_with_shadow("poochyena", (502, 292))
         wild_label = self.font_small.render("Wild Poochyena", True, OUTLINE)
         wild_level = self.starter_level + 1
         self.screen.blit(wild_label, (430, 306))
@@ -2525,7 +2574,7 @@ class Game:
                 if not self.professor_rescued:
                     self.begin_trail_fade(STATE_ROUTE_EVENT)
                 elif self.trail_unlocked:
-                    self.begin_trail_fade(STATE_NEXT_TOWN)
+                    self.begin_trail_fade(STATE_ROUTE_EXPLORE)
         
         # Update animation
         self.player_anim_timer += 1
