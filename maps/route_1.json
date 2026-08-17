@@ -1,0 +1,33 @@
+{
+  "id": "route_1",
+  "name": "Beta Route 1",
+  "kind": "route",
+  "description": "A broad trail joining Bluebell Town to Beta Forest.",
+  "spawn": [12, 16],
+  "tiles": [
+    "TTTTTTTTTTTPPTTTTTTTTTTT",
+    "T..GG......PP......GG..T",
+    "T..GG......PP......GG..T",
+    "T..........PP..........T",
+    "T.MMM......PP....MMM...T",
+    "T.M........PP......M...T",
+    "T..........PP..........T",
+    "TPPPPPPPPPPPPPPPPPPPPPPT",
+    "T..........PP..........T",
+    "T..GGG.....PP.....GGG..T",
+    "T..GGG.....PP.....GGG..T",
+    "T..........PP..........T",
+    "T...WWW....PP..........T",
+    "T...WWW....PP....MMM...T",
+    "T..........PP..........T",
+    "T..F.F.....PP.....F.F..T",
+    "T..........PP..........T",
+    "TTTTTTTTTTTPPTTTTTTTTTTT"
+  ],
+  "transitions": [
+    {"at": [11, 0], "target": "beta_forest", "destination": [11, 16]},
+    {"at": [12, 0], "target": "beta_forest", "destination": [12, 16]},
+    {"at": [11, 17], "target": "starting_town", "destination": [11, 1]},
+    {"at": [12, 17], "target": "starting_town", "destination": [12, 1]}
+  ]
+}

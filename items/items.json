@@ -1,0 +1,19 @@
+[
+  {"id":"potion","name":"Potion","description":"Restores 20 HP to one Pokemon.","category":"medicine","buy_price":300,"sell_price":150,"effect":"heal","power":20},
+  {"id":"super_potion","name":"Super Potion","description":"Restores 60 HP to one Pokemon.","category":"medicine","buy_price":700,"sell_price":350,"effect":"heal","power":60},
+  {"id":"hyper_potion","name":"Hyper Potion","description":"Restores 120 HP to one Pokemon.","category":"medicine","buy_price":1500,"sell_price":750,"effect":"heal","power":120},
+  {"id":"revive","name":"Revive","description":"Revives a fainted Pokemon with half its HP.","category":"medicine","buy_price":2000,"sell_price":1000,"effect":"revive","power":50},
+  {"id":"antidote","name":"Antidote","description":"Cures a Pokemon's status condition.","category":"medicine","buy_price":200,"sell_price":100,"effect":"cure_status"},
+  {"id":"full_heal","name":"Full Heal","description":"Cures any persistent status condition.","category":"medicine","buy_price":600,"sell_price":300,"effect":"full_heal"},
+  {"id":"poke_ball","name":"Poke Ball","description":"A standard capture device.","category":"ball","buy_price":200,"sell_price":100,"ball_modifier":1.0},
+  {"id":"great_ball","name":"Great Ball","description":"A reliable upgraded capture device.","category":"ball","buy_price":600,"sell_price":300,"ball_modifier":1.5},
+  {"id":"ultra_ball","name":"Ultra Ball","description":"A high-performance capture device.","category":"ball","buy_price":1200,"sell_price":600,"ball_modifier":2.0},
+  {"id":"net_ball","name":"Net Ball","description":"Excels against Water and Bug types.","category":"ball","buy_price":1000,"sell_price":500,"ball_modifier":1.0},
+  {"id":"dusk_ball","name":"Dusk Ball","description":"Excels at night and in caves.","category":"ball","buy_price":1000,"sell_price":500,"ball_modifier":1.0},
+  {"id":"master_ball","name":"Master Ball","description":"A unique ball reserved for legendary events.","category":"ball","buy_price":0,"sell_price":0,"ball_modifier":255.0},
+  {"id":"fire_stone","name":"Fire Stone","description":"A mysterious stone used for certain evolutions.","category":"evolution","buy_price":3000,"sell_price":1500,"effect":"evolution"},
+  {"id":"water_stone","name":"Water Stone","description":"A clear-blue stone used for certain evolutions.","category":"evolution","buy_price":3000,"sell_price":1500,"effect":"evolution"},
+  {"id":"leaf_stone","name":"Leaf Stone","description":"A leafy stone used for certain evolutions.","category":"evolution","buy_price":3000,"sell_price":1500,"effect":"evolution"},
+  {"id":"link_cable","name":"Link Cable","description":"Triggers supported trade evolutions in single-player.","category":"evolution","buy_price":4000,"sell_price":2000,"effect":"evolution"},
+  {"id":"beta_pass","name":"Beta Pass","description":"Official proof of access to protected Beta Region routes.","category":"key","buy_price":0,"sell_price":0,"consumable":false}
+]

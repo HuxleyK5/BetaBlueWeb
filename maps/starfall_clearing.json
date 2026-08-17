@@ -1,0 +1,21 @@
+{
+  "id":"starfall_clearing","name":"Starfall Clearing","kind":"secret",
+  "description":"A hidden glade where ancient wishes gather beneath the stars.",
+  "spawn":[5,8],
+  "tiles":[
+    "TTTTTPPTTTTT",
+    "TGGG.PP.GGGT",
+    "TG...PP...GT",
+    "T..WWPP...GT",
+    "T..W.PP....T",
+    "T..WWPP.GG.T",
+    "TG...PP.GG.T",
+    "TGGG.PP....T",
+    "T....PP....T",
+    "TTTTTPPTTTTT"
+  ],
+  "transitions":[
+    {"at":[5,9],"target":"beta_forest","destination":[22,15]},
+    {"at":[6,9],"target":"beta_forest","destination":[22,15]}
+  ]
+}

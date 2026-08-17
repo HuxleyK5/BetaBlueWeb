@@ -1,0 +1,33 @@
+{
+  "id": "beta_forest",
+  "name": "Beta Forest",
+  "kind": "forest",
+  "description": "An old forest of tall grass, streams, and hidden clearings.",
+  "spawn": [12, 16],
+  "tiles": [
+    "TTTTTTTTTTTPPTTTTTTTTTTT",
+    "TGGGTT....PP....TTGGG..T",
+    "TGGGTT....PP....TTGGG..T",
+    "T....T....PP.....T.....T",
+    "T....T.GG.PP.GGG.T.....T",
+    "T.....GGG.PP.GGG.......T",
+    "T..WWWW...PP...........T",
+    "T..WWWW...PP....TTT....T",
+    "T.........PP....TTT....T",
+    "T..TT.....PP...........T",
+    "T..TT.GG..PP..GGG......T",
+    "T....GGG..PP..GGG..TT..T",
+    "T.........PP.......TT..T",
+    "T....TT...PP....TT.....T",
+    "T....TT...PP....TT.....T",
+    "T..........PP..........T",
+    "TGGG.......PP.......GGGT",
+    "TTTTTTTTTTTPPTTTTTTTTTTT"
+  ],
+  "transitions": [
+    {"at": [11, 0], "target": "first_city", "destination": [11, 16]},
+    {"at": [12, 0], "target": "first_city", "destination": [12, 16]},
+    {"at": [11, 17], "target": "route_1", "destination": [11, 1]},
+    {"at": [12, 17], "target": "route_1", "destination": [12, 1]}
+  ]
+}

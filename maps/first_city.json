@@ -1,0 +1,31 @@
+{
+  "id": "first_city",
+  "name": "Azure City",
+  "kind": "city",
+  "description": "The Beta Region's first city, built around a bright central plaza.",
+  "spawn": [12, 16],
+  "tiles": [
+    "TTTTTTTTTTTTTTTTTTTTTTTT",
+    "T.BBBB.........BBBB....T",
+    "T.BBBB.........BBBB....T",
+    "T.BBBB.........BBBB....T",
+    "T......................T",
+    "TPPPPPPPPPPPPPPPPPPPPPPT",
+    "T..........PP..........T",
+    "T..BBB.....PP.....BBB..T",
+    "T..BBB.....PP.....BBB..T",
+    "T..BBB.....PP.....BBB..T",
+    "T..........PP..........T",
+    "T....F.F...PP...F.F....T",
+    "T..........PP..........T",
+    "TPPPPPPPPPPPPPPPPPPPPPPT",
+    "T..........PP..........T",
+    "T..........PP..........T",
+    "T..........PP..........T",
+    "TTTTTTTTTTTPPTTTTTTTTTTT"
+  ],
+  "transitions": [
+    {"at": [11, 17], "target": "beta_forest", "destination": [11, 1]},
+    {"at": [12, 17], "target": "beta_forest", "destination": [12, 1]}
+  ]
+}

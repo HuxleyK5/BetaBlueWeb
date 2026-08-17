@@ -1,0 +1,10 @@
+{
+  "events": [
+    {"id":"starfall","name":"Starfall","areas":["beta_forest","starfall_clearing"],"conditions":{"flags":"jirachi_event_unlocked","season":"winter","time_of_day":"night"},"weather_override":"starfall"},
+    {"id":"azure_market","name":"Azure Day Market","areas":["first_city"],"conditions":{"time_of_day":"day","weather":["clear","sunny"]}},
+    {"id":"forest_mist","name":"Forest Mist","areas":["beta_forest"],"conditions":{"time_of_day":"dawn","weather":"fog"}}
+  ],
+  "hidden_transitions": [
+    {"id":"starfall_clearing_path","area":"beta_forest","at":[22,15],"target":"starfall_clearing","destination":[5,8],"conditions":{"flags":"jirachi_event_unlocked","time_of_day":"night"}}
+  ]
+}

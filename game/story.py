@@ -1,28 +1,24 @@
-"""Story progression and badge systems."""
-
-from dataclasses import dataclass, field
-from typing import Dict, List
-
-
-@dataclass
-class Badge:
-    badge_id: str
-    name: str
-    description: str
+"""Region-level story flags, chapters, badges, and event unlocks."""
 
 
 class StoryProgress:
     def __init__(self):
-        self.active_chapter = "beta_region"
-        self.badges: List[Badge] = []
-        self.flags: Dict[str, bool] = {}
+        self.active_chapter = "A New Journey"
+        self.badges = set()
+        self.flags = set()
 
-    def earn_badge(self, badge: Badge):
-        if badge.badge_id not in [b.badge_id for b in self.badges]:
-            self.badges.append(badge)
+    def earn_badge(self, name):
+        before = len(self.badges)
+        self.badges.add(name)
+        return len(self.badges) != before
 
-    def set_flag(self, key: str, value: bool = True):
-        self.flags[key] = value
+    def apply_quest_rewards(self, rewards):
+        self.flags.update(rewards.get("flags", []))
+        if rewards.get("chapter"):
+            self.active_chapter = rewards["chapter"]
 
-    def check_flag(self, key: str):
-        return self.flags.get(key, False)
+    def has_flag(self, key):
+        return key in self.flags
+
+    def to_dict(self):
+        return {"active_chapter": self.active_chapter, "badges": sorted(self.badges), "flags": sorted(self.flags)}

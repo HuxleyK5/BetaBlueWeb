@@ -5,6 +5,36 @@ import pygame
 from .config import MAX_PLAYER_NAME_LENGTH
 
 
+class InputManager:
+    """Track high-level actions so gameplay code is not tied to raw events."""
+
+    KEY_BINDINGS = {
+        "move_left": (pygame.K_LEFT, pygame.K_a),
+        "move_right": (pygame.K_RIGHT, pygame.K_d),
+        "move_up": (pygame.K_UP, pygame.K_w),
+        "move_down": (pygame.K_DOWN, pygame.K_s),
+        "confirm": (pygame.K_RETURN, pygame.K_SPACE),
+        "cancel": (pygame.K_ESCAPE, pygame.K_BACKSPACE),
+        "fullscreen": (pygame.K_F11,),
+    }
+
+    def __init__(self):
+        self.pressed = set()
+
+    def begin_frame(self):
+        self.pressed.clear()
+
+    def process_event(self, event):
+        if event.type == pygame.KEYDOWN:
+            self.pressed.update(action for action, keys in self.KEY_BINDINGS.items() if event.key in keys)
+
+    def was_pressed(self, action):
+        return action in self.pressed
+
+    def movement_vector(self):
+        return get_movement_vector(pygame.key.get_pressed())
+
+
 def sanitize_name_char(event):
     if event.unicode.isalnum() or event.unicode.isspace():
         return event.unicode

@@ -1,0 +1,46 @@
+[
+  {
+    "id":"professor_laurel","name":"Professor Laurel","area":"starting_town","role":"quest",
+    "position":[9,14],"direction":"right","movement":"stationary",
+    "dialogue":["Welcome to the Beta Region!","Study every Pokémon you meet, and take these Potions for the road."],
+    "post_dialogue":["Your journey has only just begun.","The northern road leads toward Azure City."],
+    "reward":{"items":{"potion":2}}
+  },
+  {
+    "id":"bluebell_resident","name":"Mira","area":"starting_town","role":"resident",
+    "position":[16,8],"direction":"left","movement":"patrol","patrol":[[16,8],[18,8],[18,9],[16,9]],
+    "dialogue":["Bluebell is small, but every road in the Beta Region connects back to someone.","Try talking to people from the direction you're facing."],
+    "schedule":[{"start":6,"end":18,"position":[16,8]},{"start":18,"end":24,"position":[18,9]}]
+  },
+  {
+    "id":"rival_avery","name":"Avery","area":"route_1","role":"rival",
+    "position":[12,12],"direction":"down","movement":"stationary","ai":"smart",
+    "dialogue":["There you are! I've been training on Route 1.","Let's see which of us understands our partner better!"],
+    "post_dialogue":["That was a good match.","I'll train harder before we meet again."],
+    "party":[{"species":"poochyena","level":6},{"species":"zigzagoon","level":5}],
+    "reward":{"money":400}
+  },
+  {
+    "id":"forest_ranger","name":"Ranger Rowan","area":"beta_forest","role":"trainer",
+    "position":[12,9],"direction":"down","movement":"wander","ai":"balanced",
+    "dialogue":["A careful trainer watches the terrain and the opponent.","Show me how you handle a forest battle!"],
+    "post_dialogue":["Your team moves confidently through the forest."],
+    "party":[{"species":"wurmple","level":6},{"species":"silcoon","level":7}],
+    "reward":{"money":280}
+  },
+  {
+    "id":"azure_shopkeeper","name":"Tess","area":"first_city","role":"shopkeeper",
+    "position":[6,4],"direction":"down","movement":"stationary",
+    "dialogue":["Welcome to Azure Supply!","I carry the basics every new trainer needs."],
+    "post_dialogue":["Come back whenever you need supplies."],
+    "shop":[{"item":"poke_ball","price":200},{"item":"potion","price":300},{"item":"antidote","price":200},{"item":"super_potion","price":700},{"item":"great_ball","price":600},{"item":"revive","price":2000},{"item":"leaf_stone","price":3000},{"item":"link_cable","price":4000}]
+  },
+  {
+    "id":"leader_marina","name":"Leader Marina","area":"first_city","role":"gym_leader",
+    "position":[18,11],"direction":"left","movement":"stationary","ai":"expert",
+    "dialogue":["I am Marina, Azure City's first Gym Leader.","Strong currents reward trainers who plan ahead. Challenge me!"],
+    "post_dialogue":["The Current Badge proves your command of momentum."],
+    "party":[{"species":"mudkip","level":9},{"species":"marshtomp","level":11}],
+    "reward":{"money":1200,"badge":"Current Badge"}
+  }
+]

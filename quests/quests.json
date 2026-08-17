@@ -1,0 +1,25 @@
+[
+  {"id":"beta_region_beginning","title":"A New Journey","description":"Begin your Beta Region adventure and test your first partner.","kind":"main","chapter":"A New Journey","objectives":[
+    {"id":"choose_partner","description":"Choose your first partner","event":"starter_chosen"},
+    {"id":"meet_professor","description":"Talk to Professor Laurel","event":"talk_to_npc","target":"professor_laurel"},
+    {"id":"reach_route","description":"Travel to Beta Route 1","event":"visit_area","target":"route_1"},
+    {"id":"defeat_rival","description":"Defeat Avery on Route 1","event":"defeat_trainer","target":"rival_avery"}],
+    "rewards":{"money":500,"items":{"poke_ball":3},"chapter":"The Forest Road"}},
+  {"id":"forest_trial","title":"The Forest Road","description":"Cross Beta Forest and prove yourself to its ranger.","kind":"main","chapter":"The Forest Road","prerequisites":["beta_region_beginning"],"objectives":[
+    {"id":"enter_forest","description":"Enter Beta Forest","event":"visit_area","target":"beta_forest"},
+    {"id":"defeat_ranger","description":"Defeat Ranger Rowan","event":"defeat_trainer","target":"forest_ranger"},
+    {"id":"reach_azure","description":"Reach Azure City","event":"visit_area","target":"first_city"}],
+    "rewards":{"money":400,"items":{"great_ball":2},"chapter":"The Current Badge"}},
+  {"id":"azure_gym","title":"The Current Badge","description":"Challenge Azure City's Gym Leader.","kind":"gym","chapter":"The Current Badge","prerequisites":["forest_trial"],"objectives":[
+    {"id":"defeat_marina","description":"Defeat Leader Marina","event":"defeat_trainer","target":"leader_marina"},
+    {"id":"earn_current_badge","description":"Earn the Current Badge","event":"earn_badge","target":"Current Badge"}],
+    "rewards":{"money":800,"items":{"ultra_ball":2},"flags":["current_badge_complete"],"chapter":"Secrets of Beta Forest"}},
+  {"id":"forest_research","title":"Forest Field Notes","description":"Document species living along the forest road.","kind":"side","chapter":"A New Journey","objectives":[
+    {"id":"catch_wurmple","description":"Catch a Wurmple","event":"catch_species","target":"wurmple"},
+    {"id":"catch_poochyena","description":"Catch a Poochyena","event":"catch_species","target":"poochyena"}],
+    "rewards":{"money":350,"items":{"net_ball":2}}},
+  {"id":"wish_upon_beta","title":"Wish Upon Beta","description":"Follow Laurel's clues to awaken a mythical forest encounter.","kind":"legendary","chapter":"Secrets of Beta Forest","prerequisites":["azure_gym","forest_research"],"objectives":[
+    {"id":"consult_laurel","description":"Ask Professor Laurel about the falling stars","event":"talk_to_npc","target":"professor_laurel"},
+    {"id":"return_forest","description":"Return to Beta Forest","event":"visit_area","target":"beta_forest"}],
+    "rewards":{"items":{"dusk_ball":3},"flags":["jirachi_event_unlocked"],"chapter":"A Wish Awakens"}}
+]
