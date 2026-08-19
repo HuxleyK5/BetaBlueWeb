@@ -34,9 +34,12 @@ Controls:
 - Q: open/close the quest journal
 - I: open/close the Trainer Bag
 - N: open/close the Pokémon Nursery
+- R: open/close the Beta Region map
 - F5: manually save during exploration
 - F9: load the current save
 - F6: wait six in-game hours during exploration
+- M: open the offline multiplayer foundation screen
+- F3: toggle performance and asset-cache diagnostics
 - F11: toggle fullscreen
 - Close the window: quit
 
@@ -148,6 +151,30 @@ Starfall Clearing is a genuine hidden map rather than a menu destination. After 
 
 The save schema is now version 2 and persists the complete world clock, base weather, remaining weather duration, and deterministic seed. Existing Phase 12 version-1 saves migrate automatically, with their former encounter context converted into an equivalent clock and season before play resumes.
 
+### Phase 14: Multiplayer Foundation
+
+Multiplayer is now divided into transport-neutral identity, protocol, trading, and battle-command layers. `AccountProvider` defines future sign-in behavior while `OfflineAccountProvider` supplies a persistent guest identity without credentials or network access. `Transport` defines the future connection boundary; the included `LoopbackTransport` only echoes validated messages in memory and never opens a socket.
+
+Every Pokémon now owns a stable unique ID saved independently from its mutable party or storage position. Trade offers bind both player IDs, both Pokémon IDs, and SHA-256 fingerprints of the offered state. Local execution rechecks ownership and fingerprints before making an atomic exchange; changed, duplicated, missing, or non-pending offers are rejected. The same service boundary can later be hosted by an authoritative server.
+
+Online battle foundations use server-compatible match snapshots, deterministic random seeds, immutable player/team records, and turn-numbered commands. Commands must match the correct match, participant, turn, actor, move, and target before they can enter a future authoritative battle resolver. Existing local battles remain unchanged.
+
+Press M during exploration to inspect player identity, provider, transport, and connection status. Enter toggles the local loopback connection for protocol testing. The game launches and remains fully playable offline. Save schema version 3 persists player and Pokémon ownership identity, and automatically migrates version-1 and version-2 saves with deterministic IDs.
+
+### Phase 15: Polish and Release Preparation
+
+Static map layers are now rendered once and cached instead of rebuilding every visible tile every frame. Starter sprites preload through the centralized asset cache, and F3 displays rolling frame time, estimated FPS, and cache counts. Headless release validation currently starts and validates the complete game in under one second on the development machine.
+
+`AudioManager` supplies short original procedural cues for confirmation, errors, encounters, battles, captures, and quest completion. Cues are cached after first use, obey master/SFX volume settings, and fall back silently when no audio device is available. No external sound library or copyrighted audio asset is required.
+
+Play-time accounting now includes battles and menus. Safe shutdown attempts one final autosave, display/audio preferences reload correctly, the title screen has subtle motion and version labeling, and uncaught launcher failures create `crash.log` in the writable user-data directory. Packaged builds likewise store saves and settings under local application data rather than beside read-only bundled assets.
+
+Release infrastructure includes `scripts/validate_release.py`, standard-library regression tests, `pyproject.toml`, pinned development requirements, a PyInstaller `build.ps1`, [build instructions](BUILDING.md), [release notes](RELEASE_NOTES.md), and a [release checklist](RELEASE_CHECKLIST.md). Public or commercial release remains blocked until Pokémon branding and sprite rights are replaced or legally cleared.
+
+### Beta Region Overview
+
+Press R during exploration to open the illustrated Beta Region map. Its original geography is a presentation asset, while location names, colored markers, white route links, current-position highlighting, and secret-location visibility come from `maps/overviews/beta_region.json`. This separation keeps the map readable and makes later regions straightforward to add without repainting labels into an image.
+
 ## Phase 12 test checklist
 
 1. The title screen opens from `python main.py`.
@@ -230,9 +257,29 @@ The save schema is now version 2 and persists the complete world clock, base wea
 78. Walk through Starfall Clearing grass and verify Jirachi is eligible only during the complete legendary event conditions.
 79. Save during one season and weather period, reload, and verify time, weather, and remaining duration are unchanged.
 80. Load a Phase 12 schema-version-1 save copy and verify it migrates and resumes without losing progression.
+81. Press M during exploration and verify the multiplayer foundation screen displays the offline guest identity.
+82. Press Enter on that screen and confirm the loopback state changes to Connected without requiring internet access.
+83. Press Enter again and confirm it returns to Offline while single-player progress remains unchanged.
+84. Save, restart, and verify the player ID and every party/storage Pokémon ID remain unchanged.
+85. Load a copied schema-version-2 save and verify deterministic identity migration preserves all previous progression.
+86. Create a local trade offer, change the offered Pokémon's HP, and verify fingerprint validation rejects the exchange.
+87. Complete a valid local trade test and verify both Pokémon exchange atomically with their IDs intact.
+88. Duplicate a Pokémon ID in a copied save and verify loading rejects it without partially changing the running game.
+89. Create a deterministic online match snapshot and verify commands from the wrong player, match, or turn are rejected.
+90. Disconnect loopback, restart, and verify wild battles, trainer battles, captures, saves, and quests still work offline.
+91. Press F3 and verify frame time, FPS, cached-image count, and cached-font count appear without pausing play.
+92. Enter every map and verify its static layer renders correctly while movement, NPCs, weather, and secret markers remain dynamic.
+93. Trigger confirmation, error, encounter, battle, capture, and quest cues; verify volume settings apply consistently.
+94. Run without an available audio device and verify the game remains fully playable without audio errors.
+95. Spend time in battles, the Bag, Quest Journal, Nursery, and multiplayer screen; verify play time continues increasing.
+96. Close the window during safe exploration, restart, and verify the final shutdown autosave can be continued.
+97. Run `python scripts/validate_release.py` and the unittest command from `BUILDING.md`; verify both pass.
+98. Build with `build.ps1`, move the complete output folder to a clean machine, and verify all bundled data loads.
+99. Intentionally test an uncaught startup failure in a disposable copy and verify a readable `crash.log` is created.
+100. Complete every automated, gameplay, presentation, packaging, and legal gate in `RELEASE_CHECKLIST.md` before distribution.
 
 ## Architecture direction
 
 Runtime systems live under `game/`; content belongs in the matching top-level folder. Configuration, input, window presentation, and assets are centralized so later regions and game modes do not duplicate platform code.
 
-Phase 14 will prepare network-safe boundaries for player identity, trading, online battles, accounts, and multiplayer messages without removing or coupling the single-player game to a server.
+The planned Phase 1–15 architecture pass is complete. Future work should proceed as versioned milestones driven by playtesting, original content production, accessibility, balance, and legally cleared release assets rather than adding unbounded systems to the core loop.

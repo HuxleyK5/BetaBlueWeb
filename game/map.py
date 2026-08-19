@@ -54,6 +54,7 @@ class GameMap:
         unknown = sorted({symbol for row in self.tile_rows for symbol in row if symbol not in TILES})
         if unknown:
             raise MapDataError(f"Unknown tile symbols: {', '.join(unknown)}")
+        self._render_cache = None
 
     @property
     def pixel_width(self):
@@ -77,17 +78,16 @@ class GameMap:
         return tile is None or tile.solid
 
     def draw(self, surface, offset_x=0, offset_y=0):
-        """Draw only tiles intersecting the camera viewport."""
-        start_x = max(0, int(-offset_x // TILE_SIZE))
-        start_y = max(0, int(-offset_y // TILE_SIZE))
-        end_x = min(self.width, start_x + SCREEN_WIDTH // TILE_SIZE + 2)
-        end_y = min(self.height, start_y + SCREEN_HEIGHT // TILE_SIZE + 2)
-        for y in range(start_y, end_y):
-            for x in range(start_x, end_x):
-                tile = TILES[self.tile_rows[y][x]]
-                rect = pygame.Rect(offset_x + x * TILE_SIZE, offset_y + y * TILE_SIZE, TILE_SIZE, TILE_SIZE)
-                pygame.draw.rect(surface, tile.color, rect)
-                self._draw_detail(surface, rect, tile.name, x, y)
+        """Blit the static map layer; tile art is generated only once per area."""
+        if self._render_cache is None:
+            self._render_cache = pygame.Surface((self.pixel_width, self.pixel_height)).convert()
+            for y in range(self.height):
+                for x in range(self.width):
+                    tile = TILES[self.tile_rows[y][x]]
+                    rect = pygame.Rect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE)
+                    pygame.draw.rect(self._render_cache, tile.color, rect)
+                    self._draw_detail(self._render_cache, rect, tile.name, x, y)
+        surface.blit(self._render_cache, (round(offset_x), round(offset_y)))
 
     @staticmethod
     def _draw_detail(surface, rect, tile_name, x, y):

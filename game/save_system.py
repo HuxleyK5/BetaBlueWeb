@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import uuid
 
 from .breeding import Egg
 from .config import Settings
@@ -14,9 +15,10 @@ from .party import PartyManager
 from .pokemon_data import DATABASE
 from .quests import QuestProgress
 from .weather import SEASONS, WorldSimulation
+from .accounts import PlayerIdentity
 
 
-SAVE_VERSION = 2
+SAVE_VERSION = 3
 SAVE_FILENAME = "savegame.json"
 
 
@@ -67,10 +69,12 @@ class SaveManager:
             data = json.loads(self.path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as error:
             raise SaveError(f"The save file could not be read: {error}") from error
-        if not isinstance(data, dict) or data.get("schema_version") not in {1, SAVE_VERSION}:
+        if not isinstance(data, dict) or data.get("schema_version") not in {1, 2, SAVE_VERSION}:
             raise SaveError("This save file uses an unsupported schema version.")
         if data["schema_version"] == 1:
             data = self._migrate_v1(data)
+        if data["schema_version"] == 2:
+            data = self._migrate_v2(data)
         return data
 
     @staticmethod
@@ -84,6 +88,20 @@ class SaveManager:
             "weather": "clear" if context.get("weather") == "starfall" else context.get("weather", "clear"),
             "weather_minutes_remaining": 120, "seed": 1337,
         }
+        data["schema_version"] = 2
+        return data
+
+    @staticmethod
+    def _migrate_v2(data):
+        basis = str(data.get("saved_at", "legacy-save"))
+        trainer_name = data.get("trainer", {}).get("name", "Trainer")
+        player_id = uuid.uuid5(uuid.NAMESPACE_URL, f"pokemon-beta-blue:{basis}:{trainer_name}").hex
+        data["multiplayer"] = {"identity": {"player_id": player_id, "display_name": trainer_name, "provider": "offline", "authenticated": False}}
+        collections = [("party", data.get("party", {}).get("members", []))]
+        collections.extend((f"box-{index}", box) for index, box in enumerate(data.get("storage", {}).get("boxes", [])))
+        for collection, entries in collections:
+            for index, pokemon in enumerate(entries):
+                pokemon.setdefault("pokemon_id", uuid.uuid5(uuid.NAMESPACE_URL, f"{player_id}:{collection}:{index}:{pokemon.get('species')}").hex)
         data["schema_version"] = SAVE_VERSION
         return data
 
@@ -116,6 +134,10 @@ class SaveManager:
                 if len(entries) > box.capacity:
                     raise ValueError("saved storage box exceeds capacity")
                 box.pokemon = [self._pokemon(entry) for entry in entries]
+            all_pokemon = party.party + [pokemon for box in party.storage.boxes for pokemon in box.pokemon]
+            identifiers = [pokemon.pokemon_id for pokemon in all_pokemon]
+            if len(identifiers) != len(set(identifiers)):
+                raise ValueError("duplicate Pokemon ownership identity")
             party.active_index = max(0, min(data["party"].get("active_index", 0), len(party.party) - 1))
             inventory = self._inventory(data["inventory"])
             quest_states = self._quests(game, data["quests"])
@@ -126,15 +148,21 @@ class SaveManager:
             eggs = self._eggs(data["nursery"])
             simulation = WorldSimulation()
             simulation.restore(data["world_simulation"])
+            identity_raw = data["multiplayer"]["identity"]
+            identity = PlayerIdentity(identity_raw["player_id"], identity_raw["display_name"], identity_raw.get("provider", "offline"), bool(identity_raw.get("authenticated", False)))
+            if not identity.player_id or not identity.display_name:
+                raise ValueError("invalid multiplayer identity")
             settings = Settings(**data.get("settings", asdict(game.settings)))
             if settings.window_width <= 0 or settings.window_height <= 0 or settings.target_fps <= 0:
                 raise ValueError("invalid saved settings")
+            if not all(isinstance(value, (int, float)) and not isinstance(value, bool) and 0 <= value <= 1 for value in (settings.master_volume, settings.sfx_volume)):
+                raise ValueError("invalid saved audio settings")
         except (KeyError, TypeError, ValueError) as error:
             raise SaveError(f"The save file contains invalid game state: {error}") from error
         return {
             "trainer": trainer, "area": area, "position": position, "direction": location.get("direction", "down"),
             "party": party, "inventory": inventory, "quests": quest_states, "story": story,
-            "npcs": npc_states, "eggs": eggs, "simulation": simulation, "settings": settings,
+            "npcs": npc_states, "eggs": eggs, "simulation": simulation, "identity": identity, "settings": settings,
         }
 
     @staticmethod
@@ -151,7 +179,7 @@ class SaveManager:
             status=entry.get("status", "healthy"), nickname=entry.get("nickname"),
             ability=entry.get("ability"), known_moves=moves,
             friendship=entry.get("friendship", 70), personality=entry.get("personality", 0),
-            gender=entry.get("gender", "genderless"),
+            gender=entry.get("gender", "genderless"), pokemon_id=entry.get("pokemon_id", uuid.uuid4().hex),
         )
         hp = entry.get("current_hp", pokemon.max_hp)
         if not isinstance(hp, int) or isinstance(hp, bool) or not 0 <= hp <= pokemon.max_hp:
@@ -248,6 +276,8 @@ class SaveManager:
         game.nursery.eggs = state["eggs"]
         game.world_simulation = state["simulation"]
         game.refresh_world_context()
+        game.player_identity = game.account_provider.restore(state["identity"].to_dict())
+        game.multiplayer.session.identity = game.player_identity
         game.settings = state["settings"]
         game.camera = type(game.camera)(game.game_map.pixel_width, game.game_map.pixel_height)
         game.camera.update(*game.player.center, snap=True)
@@ -266,5 +296,6 @@ class SaveManager:
             "nursery": game.nursery.to_dict(),
             "encounter_context": asdict(game.encounter_context),
             "world_simulation": game.world_simulation.to_dict(),
+            "multiplayer": {"identity": game.player_identity.to_dict()},
             "settings": asdict(game.settings),
         }

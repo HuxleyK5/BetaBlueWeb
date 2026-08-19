@@ -4,8 +4,8 @@ from dataclasses import replace
 import pygame
 
 from .config import (
-    PROJECT_ROOT, SCREEN_HEIGHT, SCREEN_WIDTH, TILE_SIZE, STATE_NAME_ENTRY, STATE_TITLE,
-    STATE_BATTLE, STATE_DIALOGUE, STATE_INVENTORY, STATE_NURSERY, STATE_QUEST_LOG, STATE_SHOP, STATE_STARTER_SELECT, STATE_TOWN,
+    GAME_VERSION, PROJECT_ROOT, USER_DATA_ROOT, SCREEN_HEIGHT, SCREEN_WIDTH, TILE_SIZE, STATE_NAME_ENTRY, STATE_TITLE,
+    STATE_BATTLE, STATE_DIALOGUE, STATE_INVENTORY, STATE_MULTIPLAYER, STATE_NURSERY, STATE_QUEST_LOG, STATE_REGION_MAP, STATE_SHOP, STATE_STARTER_SELECT, STATE_TOWN,
     STATE_WILD_ENCOUNTER, load_settings, save_settings,
 )
 from .window import GameWindow
@@ -35,6 +35,14 @@ from .save_system import SaveError, SaveManager
 from .weather import WorldSimulation
 from .world_events import WorldEventManager
 from .world_effects import draw_world_effects
+from .accounts import OfflineAccountProvider
+from .multiplayer import ConnectionState, MultiplayerGateway
+from .trading import TradeService
+from .online_battle import OnlineBattleCoordinator
+from .multiplayer_ui import draw_multiplayer_screen
+from .audio import AudioManager
+from .performance import PerformanceMonitor
+from .region_map import RegionMap
 
 
 def clamp(value, min_value, max_value):
@@ -46,10 +54,17 @@ class Game:
         pygame.init()
         self.root_path = root_path
         self.settings = load_settings()
-        self.save_manager = SaveManager(root_path / "saves")
+        self.save_manager = SaveManager(USER_DATA_ROOT / "saves")
+        self.account_provider = OfflineAccountProvider()
+        self.player_identity = self.account_provider.create_guest()
+        self.multiplayer = MultiplayerGateway(self.player_identity)
+        self.trade_service = TradeService()
+        self.online_battles = OnlineBattleCoordinator()
         ensure_asset_folders(root_path)
         self.window = GameWindow(self.settings)
         self.assets = AssetManager(self.root_path)
+        self.audio = AudioManager(self.settings.master_volume, self.settings.sfx_volume)
+        self.performance = PerformanceMonitor()
         self.input = InputManager()
         self.player = Player()
         self.party = PartyManager()
@@ -60,6 +75,7 @@ class Game:
         self.capture_calculator = CaptureCalculator()
         self.capture_animation = None
         self.world = WorldManager(self.root_path / "maps")
+        self.region_map = RegionMap(self.root_path / "maps" / "overviews" / "beta_region.json", self.world.areas)
         self.world_simulation = WorldSimulation()
         self.world_events = WorldEventManager(self.root_path / "maps" / "events" / "world_events.json", self.world)
         self.npcs = NPCManager(self.world, self.root_path / "characters" / "npcs.json")
@@ -106,6 +122,9 @@ class Game:
         self.title_font = self.assets.font(72, bold=True)
         self.body_font = self.assets.font(28)
         self.small_font = self.assets.font(20)
+        self.assets.preload_images(
+            [create_pokemon(key, 5).species.sprite_path for key in self.starter_options], size=(155, 155)
+        )
         self.player_name = ""
         self.save_message = ""
 
@@ -120,6 +139,8 @@ class Game:
                 if event.key == pygame.K_F11:
                     self.window.toggle_fullscreen()
                     self.persist_settings()
+                elif event.key == pygame.K_F3:
+                    self.performance.toggle()
                 elif event.key == pygame.K_F5:
                     self.save_game(manual=True)
                 elif event.key == pygame.K_F9:
@@ -135,6 +156,8 @@ class Game:
                     self.player_name = handle_name_input(event, self.player_name)
                     if event.key == pygame.K_RETURN and self.player_name.strip():
                         self.player.name = self.player_name.strip()
+                        self.player_identity = self.account_provider.rename_guest(self.player.name)
+                        self.multiplayer.session.identity = self.player_identity
                         self.state = STATE_STARTER_SELECT
                 elif self.state == STATE_STARTER_SELECT:
                     self.handle_starter_input(event)
@@ -147,12 +170,20 @@ class Game:
                     self.open_inventory()
                 elif self.state == STATE_TOWN and event.key == pygame.K_n:
                     self.open_nursery()
+                elif self.state == STATE_TOWN and event.key == pygame.K_m:
+                    self.state = STATE_MULTIPLAYER
+                elif self.state == STATE_TOWN and event.key == pygame.K_r:
+                    self.state = STATE_REGION_MAP
                 elif self.state == STATE_QUEST_LOG:
                     self.handle_quest_log_input(event)
                 elif self.state == STATE_INVENTORY:
                     self.handle_inventory_input(event)
                 elif self.state == STATE_NURSERY:
                     self.handle_nursery_input(event)
+                elif self.state == STATE_MULTIPLAYER:
+                    self.handle_multiplayer_input(event)
+                elif self.state == STATE_REGION_MAP and event.key in (pygame.K_ESCAPE, pygame.K_r):
+                    self.state = STATE_TOWN
                 elif self.state == STATE_DIALOGUE:
                     self.handle_dialogue_input(event)
                 elif self.state == STATE_SHOP:
@@ -182,12 +213,13 @@ class Game:
             self.save_message = f"Settings could not be saved: {error}"
 
     def save_game(self, manual=False):
-        stable_states = {STATE_TOWN, STATE_QUEST_LOG, STATE_INVENTORY, STATE_NURSERY}
+        stable_states = {STATE_TOWN, STATE_QUEST_LOG, STATE_INVENTORY, STATE_NURSERY, STATE_MULTIPLAYER, STATE_REGION_MAP}
         if self.state not in stable_states or not self.player.name or not self.party.party:
             if manual:
                 self.save_message = "Saving is available during normal exploration."
                 self.quest_notice = self.save_message
                 self.quest_notice_timer = 3.0
+                self.audio.play("error")
             return False
         self.persist_settings()
         try:
@@ -196,11 +228,13 @@ class Game:
             self.save_message = str(error)
             self.quest_notice = self.save_message
             self.quest_notice_timer = 4.0
+            self.audio.play("error")
             return False
         self.save_message = "Game saved."
         if manual:
             self.quest_notice = self.save_message
             self.quest_notice_timer = 3.0
+            self.audio.play("confirm")
         return True
 
     def load_game(self):
@@ -211,6 +245,7 @@ class Game:
             if self.state != STATE_TITLE:
                 self.quest_notice = self.save_message
                 self.quest_notice_timer = 4.0
+            self.audio.play("error")
             return False
         self.active_battle = None
         self.active_encounter = None
@@ -223,9 +258,12 @@ class Game:
         self.window.windowed_size = (self.settings.window_width, self.settings.window_height)
         self.window.vsync = self.settings.vsync
         self.window.window = self.window._create_window()
+        self.audio.master_volume = self.settings.master_volume
+        self.audio.sfx_volume = self.settings.sfx_volume
         self.save_message = "Save loaded."
         self.quest_notice = self.save_message
         self.quest_notice_timer = 3.0
+        self.audio.play("confirm")
         return True
 
     def handle_starter_input(self, event):
@@ -238,8 +276,11 @@ class Game:
             self.party.add_pokemon(create_pokemon(starter_key, 5))
             self.publish_quest_event("starter_chosen", starter_key)
             self.state = STATE_TOWN
+            self.audio.play("confirm")
 
     def update(self, dt):
+        if self.player.name and self.state != STATE_TOWN:
+            self.player.stats.play_time_seconds += dt
         if self.state == STATE_BATTLE and self.capture_animation is not None:
             self.capture_animation.update(dt)
             if self.capture_animation.complete:
@@ -334,6 +375,7 @@ class Game:
         self.battle_selection = 0
         self.capture_animation = None
         self.state = STATE_BATTLE
+        self.audio.play("battle")
 
     def grant_npc_reward(self, npc):
         if npc.reward_claimed or not npc.reward:
@@ -358,6 +400,7 @@ class Game:
             self.story.apply_quest_rewards(reward)
             self.quest_notice = f"Quest complete: {self.quests.definitions[quest_id].title}"
             self.quest_notice_timer = 4.0
+            self.audio.play("quest")
         if updates and not rewards:
             update = updates[-1]
             quest = self.quests.definitions[update.quest_id]
@@ -461,6 +504,15 @@ class Game:
         self.nursery_message = "Select two compatible partners."
         self.state = STATE_NURSERY
 
+    def handle_multiplayer_input(self, event):
+        if event.key in (pygame.K_ESCAPE, pygame.K_m):
+            self.state = STATE_TOWN
+        elif event.key == pygame.K_RETURN:
+            if self.multiplayer.session.state == ConnectionState.CONNECTED:
+                self.multiplayer.disconnect()
+            else:
+                self.multiplayer.connect_loopback()
+
     def handle_nursery_input(self, event):
         count = len(self.party.party)
         if event.key in (pygame.K_ESCAPE, pygame.K_n):
@@ -505,6 +557,7 @@ class Game:
             self.active_encounter = encounter
             self.player.stats.pokemon_seen += 1
             self.state = STATE_WILD_ENCOUNTER
+            self.audio.play("encounter")
 
     def dismiss_wild_encounter(self):
         """Leave the pre-battle reveal without starting combat."""
@@ -522,6 +575,7 @@ class Game:
         self.battle_selection = 0
         self.capture_animation = None
         self.state = STATE_BATTLE
+        self.audio.play("battle")
 
     def handle_battle_input(self, event):
         battle = self.active_battle
@@ -629,6 +683,7 @@ class Game:
                 self.publish_quest_event("catch_species", caught.species.key)
                 self.publish_quest_event("capture_count", amount=1)
                 placement = self.party.last_placement
+                self.audio.play("capture")
                 if placement[0] == "party":
                     battle.log.append(f"{caught.display_name} joined your party!")
                 else:
@@ -685,6 +740,12 @@ class Game:
 
     def draw_title_screen(self):
         self.window.screen.fill((18, 30, 84))
+        ticks = pygame.time.get_ticks() / 1000
+        for index in range(18):
+            x = int((index * 71 + ticks * (8 + index % 3)) % (SCREEN_WIDTH + 30)) - 15
+            y = 55 + (index * 83) % (SCREEN_HEIGHT - 110)
+            radius = 2 + index % 3
+            pygame.draw.circle(self.window.screen, (55, 88, 152), (x, y), radius)
         title_surface = self.title_font.render("Pokemon Beta Blue", True, (255, 224, 108))
         prompt = "ENTER: New Game"
         if self.save_manager.has_save:
@@ -695,6 +756,8 @@ class Game:
         if self.save_message:
             error = self.small_font.render(self.save_message, True, (255, 170, 140))
             self.window.screen.blit(error, error.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 85)))
+        version = self.small_font.render(f"Version {GAME_VERSION}", True, (145, 166, 205))
+        self.window.screen.blit(version, (SCREEN_WIDTH - version.get_width() - 12, SCREEN_HEIGHT - 30))
 
     def draw_name_entry(self):
         self.window.screen.fill((12, 20, 48))
@@ -763,7 +826,7 @@ class Game:
                 text = self.quests.objective_text(objective, state)
                 panel.blit(self.small_font.render(text[:43], True, (235, 242, 255)), (10, 31))
                 self.window.screen.blit(panel, (12, 12))
-        hint = self.small_font.render("Q: Quests  I: Bag  N: Nursery  F6: Wait", True, (235, 242, 255))
+        hint = self.small_font.render("Q: Quests  I: Bag  N: Nursery  M: Link  F6: Wait", True, (235, 242, 255))
         self.window.screen.blit(hint, (SCREEN_WIDTH - hint.get_width() - 12, 12))
         if self.quest_notice_timer > 0 and self.quest_notice:
             notice = self.body_font.render(self.quest_notice, True, (255, 234, 126))
@@ -912,6 +975,16 @@ class Game:
                     (self.title_font, self.body_font, self.small_font),
                     self.nursery_parent_a, self.nursery_parent_b, self.nursery_message,
                 )
+            elif self.state == STATE_MULTIPLAYER:
+                draw_multiplayer_screen(
+                    self.window.screen, self.player_identity, self.multiplayer,
+                    (self.title_font, self.body_font, self.small_font),
+                )
+            elif self.state == STATE_REGION_MAP:
+                self.region_map.draw(
+                    self.window.screen, self.assets, self.world.current_area_id, self.story.flags,
+                    (self.title_font, self.body_font, self.small_font),
+                )
             elif self.state == STATE_DIALOGUE:
                 self.draw_town()
                 self.draw_dialogue()
@@ -928,9 +1001,14 @@ class Game:
                     self.inventory, self.capture_animation,
                 )
 
+            self.performance.draw(self.window.screen, self.small_font, self.assets)
+
             self.window.present()
             dt = min(self.clock.tick(self.settings.target_fps) / 1000.0, 0.05)
+            self.performance.record(dt)
 
+        self.save_game()
+        self.audio.shutdown()
         pygame.quit()
 
 

@@ -5,7 +5,7 @@ from typing import Optional
 
 import pygame
 
-from .config import ASSET_FOLDERS, PROJECT_ROOT
+from .config import ASSET_FOLDERS, PROJECT_ROOT, USER_DATA_ROOT
 
 
 class AssetManager:
@@ -38,6 +38,14 @@ class AssetManager:
             self._fonts[key] = font
         return self._fonts[key]
 
+    def preload_images(self, paths, size=None):
+        """Warm frequently used images once, before their first animated screen."""
+        for path in paths:
+            self.image(path, size=size)
+
+    def cache_stats(self):
+        return {"images": len(self._images), "fonts": len(self._fonts)}
+
     @staticmethod
     def _missing_image(size, color):
         image = pygame.Surface(size, pygame.SRCALPHA)
@@ -64,7 +72,8 @@ def load_font(size, bold=False):
     return pygame.font.Font(None, size)
 
 
-def ensure_asset_folders(root_path):
+def ensure_asset_folders(root_path, user_data_root=USER_DATA_ROOT):
     root = Path(root_path)
     for folder in ASSET_FOLDERS:
-        (root / folder).mkdir(parents=True, exist_ok=True)
+        target = Path(user_data_root) / folder if folder == "saves" else root / folder
+        target.mkdir(parents=True, exist_ok=True)

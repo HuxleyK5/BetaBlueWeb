@@ -3,5 +3,7 @@
   "window_height": 600,
   "fullscreen": false,
   "vsync": true,
-  "target_fps": 60
+  "target_fps": 60,
+  "master_volume": 0.7,
+  "sfx_volume": 0.8
 }

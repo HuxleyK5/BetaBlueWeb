@@ -1,0 +1,18 @@
+{
+  "id": "beta_region",
+  "name": "Beta Region",
+  "background": "assets/maps/beta_region_map.png",
+  "locations": [
+    {"area": "starting_town", "position": [148, 454], "marker": "town", "label_offset": [-8, 20]},
+    {"area": "route_1", "position": [282, 421], "marker": "route", "label_offset": [-18, 18]},
+    {"area": "beta_forest", "position": [416, 337], "marker": "wild", "label_offset": [-35, -34]},
+    {"area": "first_city", "position": [646, 407], "marker": "city", "label_offset": [-28, 21]},
+    {"area": "starfall_clearing", "position": [726, 266], "marker": "secret", "label_offset": [-79, -35], "requires_flag": "jirachi_event_unlocked"}
+  ],
+  "connections": [
+    ["starting_town", "route_1"],
+    ["route_1", "beta_forest"],
+    ["beta_forest", "first_city"],
+    ["beta_forest", "starfall_clearing"]
+  ]
+}

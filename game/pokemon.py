@@ -3,6 +3,7 @@
 from dataclasses import dataclass, field
 from typing import Optional
 import random
+import uuid
 
 
 STAT_NAMES = ("hp", "attack", "defense", "special_attack", "special_defense", "speed")
@@ -101,6 +102,7 @@ class Pokemon:
     friendship: int = 70
     personality: int = field(default_factory=lambda: random.randrange(256))
     gender: str = field(default_factory=lambda: random.choice(("male", "female")))
+    pokemon_id: str = field(default_factory=lambda: uuid.uuid4().hex)
 
     def __post_init__(self):
         if not 1 <= self.level <= 100:
@@ -108,6 +110,8 @@ class Pokemon:
         self.friendship = max(0, min(255, self.friendship))
         if self.gender not in {"male", "female", "genderless"}:
             raise ValueError("Pokemon gender must be male, female, or genderless")
+        if not isinstance(self.pokemon_id, str) or len(self.pokemon_id) < 8:
+            raise ValueError("Pokemon requires a stable identity")
         if self.ability is None:
             self.ability = self.species.abilities[0]
         if self.ability not in self.species.abilities:
@@ -185,6 +189,7 @@ class Pokemon:
             "experience": self.experience, "status": self.status, "nickname": self.nickname,
             "ability": self.ability, "moves": [move.key for move in self.known_moves],
             "friendship": self.friendship, "personality": self.personality, "gender": self.gender,
+            "pokemon_id": self.pokemon_id,
         }
 
     def _learn_level_moves(self):
