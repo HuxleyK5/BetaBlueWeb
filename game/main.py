@@ -4,7 +4,7 @@ from dataclasses import replace
 import pygame
 
 from .config import (
-    GAME_VERSION, PROJECT_ROOT, USER_DATA_ROOT, SCREEN_HEIGHT, SCREEN_WIDTH, TILE_SIZE, STATE_NAME_ENTRY, STATE_TITLE,
+    GAME_VERSION, PROJECT_ROOT, USER_DATA_ROOT, SCREEN_HEIGHT, SCREEN_WIDTH, TILE_SIZE, STATE_GENDER_SELECT, STATE_NAME_ENTRY, STATE_SKIN_SELECT, STATE_TITLE,
     STATE_BATTLE, STATE_DIALOGUE, STATE_INVENTORY, STATE_MULTIPLAYER, STATE_NURSERY, STATE_QUEST_LOG, STATE_REGION_MAP, STATE_SHOP, STATE_STARTER_SELECT, STATE_TOWN,
     STATE_WILD_ENCOUNTER, load_settings, save_settings,
 )
@@ -110,6 +110,9 @@ class Game:
         self.quest_notice_timer = 0.0
         self.starter_options = ("treecko", "torchic", "mudkip")
         self.starter_selection = 0
+        self.gender_options = ("male", "female")
+        self.gender_selection = 0
+        self.skin_selection = 0
         self.battle_menu = "main"
         self.battle_selection = 0
         self.game_map = self.world.current_area.game_map
@@ -125,6 +128,7 @@ class Game:
         self.assets.preload_images(
             [create_pokemon(key, 5).species.sprite_path for key in self.starter_options], size=(155, 155)
         )
+        self.assets.preload_images(("assets/characters/male_trainers_supplied.png", "assets/characters/female_trainers_supplied.png"))
         self.player_name = ""
         self.save_message = ""
 
@@ -153,12 +157,19 @@ class Game:
                 elif self.state == STATE_TITLE:
                     self.handle_title_input(event)
                 elif self.state == STATE_NAME_ENTRY:
-                    self.player_name = handle_name_input(event, self.player_name)
+                    if event.key == pygame.K_ESCAPE:
+                        self.state = STATE_SKIN_SELECT
+                    else:
+                        self.player_name = handle_name_input(event, self.player_name)
                     if event.key == pygame.K_RETURN and self.player_name.strip():
                         self.player.name = self.player_name.strip()
                         self.player_identity = self.account_provider.rename_guest(self.player.name)
                         self.multiplayer.session.identity = self.player_identity
                         self.state = STATE_STARTER_SELECT
+                elif self.state == STATE_GENDER_SELECT:
+                    self.handle_gender_input(event)
+                elif self.state == STATE_SKIN_SELECT:
+                    self.handle_skin_input(event)
                 elif self.state == STATE_STARTER_SELECT:
                     self.handle_starter_input(event)
                 elif self.state == STATE_TOWN and event.key in (pygame.K_RETURN, pygame.K_SPACE):
@@ -201,7 +212,12 @@ class Game:
         if event.key == pygame.K_c and self.save_manager.has_save:
             self.load_game()
         elif event.key == pygame.K_RETURN:
-            self.state = STATE_NAME_ENTRY
+            self.player_name = ""
+            self.player.name = ""
+            self.gender_selection = 0
+            self.skin_selection = 0
+            self.player.set_appearance("male", 0)
+            self.state = STATE_GENDER_SELECT
 
     def persist_settings(self):
         width, height = self.window.windowed_size if self.window.fullscreen else self.window.window.get_size()
@@ -276,6 +292,31 @@ class Game:
             self.party.add_pokemon(create_pokemon(starter_key, 5))
             self.publish_quest_event("starter_chosen", starter_key)
             self.state = STATE_TOWN
+            self.audio.play("confirm")
+
+    def handle_gender_input(self, event):
+        if event.key in (pygame.K_LEFT, pygame.K_a, pygame.K_RIGHT, pygame.K_d):
+            self.gender_selection = 1 - self.gender_selection
+        elif event.key == pygame.K_ESCAPE:
+            self.state = STATE_TITLE
+        elif event.key == pygame.K_RETURN:
+            gender = self.gender_options[self.gender_selection]
+            self.skin_selection = 0
+            self.player.set_appearance(gender, self.skin_selection)
+            self.state = STATE_SKIN_SELECT
+            self.audio.play("confirm")
+
+    def handle_skin_input(self, event):
+        if event.key in (pygame.K_LEFT, pygame.K_a):
+            self.skin_selection = (self.skin_selection - 1) % 3
+        elif event.key in (pygame.K_RIGHT, pygame.K_d):
+            self.skin_selection = (self.skin_selection + 1) % 3
+        elif event.key == pygame.K_ESCAPE:
+            self.state = STATE_GENDER_SELECT
+        elif event.key == pygame.K_RETURN:
+            gender = self.gender_options[self.gender_selection]
+            self.player.set_appearance(gender, self.skin_selection)
+            self.state = STATE_NAME_ENTRY
             self.audio.play("confirm")
 
     def update(self, dt):
@@ -768,6 +809,45 @@ class Game:
         self.window.screen.blit(name_surface, name_surface.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)))
         self.window.screen.blit(hint_surface, hint_surface.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 40)))
 
+    def draw_gender_selection(self):
+        self.window.screen.fill((22, 43, 77))
+        heading = self.body_font.render("Choose your trainer", True, (255, 236, 126))
+        self.window.screen.blit(heading, heading.get_rect(center=(SCREEN_WIDTH // 2, 52)))
+        for index, gender in enumerate(self.gender_options):
+            card = pygame.Rect(65 + index * 365, 100, 305, 385)
+            selected = index == self.gender_selection
+            pygame.draw.rect(self.window.screen, (247, 249, 245), card, border_radius=16)
+            pygame.draw.rect(self.window.screen, (255, 207, 65) if selected else (90, 111, 137), card, 6, border_radius=16)
+            lineup = self.assets.image(f"assets/characters/{gender}_trainers_supplied.png", size=(285, 102))
+            self.window.screen.blit(lineup, lineup.get_rect(center=(card.centerx, card.y + 142)))
+            label = self.title_font.render(gender.title(), True, (35, 57, 91))
+            self.window.screen.blit(label, label.get_rect(center=(card.centerx, card.y + 280)))
+            detail = self.small_font.render("Three available looks", True, (74, 89, 108))
+            self.window.screen.blit(detail, detail.get_rect(center=(card.centerx, card.y + 330)))
+        hint = self.small_font.render("LEFT / RIGHT to choose   •   ENTER to continue", True, (240, 246, 255))
+        self.window.screen.blit(hint, hint.get_rect(center=(SCREEN_WIDTH // 2, 535)))
+
+    def draw_skin_selection(self):
+        self.window.screen.fill((22, 43, 77))
+        gender = self.gender_options[self.gender_selection]
+        heading = self.body_font.render(f"Choose your {gender} trainer look", True, (255, 236, 126))
+        self.window.screen.blit(heading, heading.get_rect(center=(SCREEN_WIDTH // 2, 52)))
+        lineup = self.assets.image(f"assets/characters/{gender}_trainers_supplied.png")
+        source_width = lineup.get_width() // 3
+        style_names = ("Skin 1", "Skin 2", "Skin 3")
+        for index in range(3):
+            card = pygame.Rect(47 + index * 245, 95, 216, 405)
+            selected = index == self.skin_selection
+            pygame.draw.rect(self.window.screen, (247, 249, 245), card, border_radius=15)
+            pygame.draw.rect(self.window.screen, (255, 207, 65) if selected else (90, 111, 137), card, 6, border_radius=15)
+            source = lineup.subsurface((index * source_width, 0, source_width, lineup.get_height()))
+            preview = pygame.transform.smoothscale(source, (196, 210))
+            self.window.screen.blit(preview, (card.x + 10, card.y + 65))
+            label = self.body_font.render(style_names[index], True, (35, 57, 91))
+            self.window.screen.blit(label, label.get_rect(center=(card.centerx, card.bottom - 52)))
+        hint = self.small_font.render("LEFT / RIGHT to choose   •   ENTER to confirm   •   ESC to go back", True, (240, 246, 255))
+        self.window.screen.blit(hint, hint.get_rect(center=(SCREEN_WIDTH // 2, 545)))
+
     def draw_starter_selection(self):
         self.window.screen.fill((29, 65, 104))
         heading = self.body_font.render("Choose your first partner", True, (255, 236, 126))
@@ -956,6 +1036,10 @@ class Game:
                 self.draw_title_screen()
             elif self.state == STATE_NAME_ENTRY:
                 self.draw_name_entry()
+            elif self.state == STATE_GENDER_SELECT:
+                self.draw_gender_selection()
+            elif self.state == STATE_SKIN_SELECT:
+                self.draw_skin_selection()
             elif self.state == STATE_STARTER_SELECT:
                 self.draw_starter_selection()
             elif self.state == STATE_TOWN:

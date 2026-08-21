@@ -31,6 +31,8 @@ CAMERA_FOLLOW_SPEED = 10.0
 # Game state identifiers
 STATE_TITLE = "title"
 STATE_NAME_ENTRY = "name_entry"
+STATE_GENDER_SELECT = "gender_select"
+STATE_SKIN_SELECT = "skin_select"
 STATE_STARTER_SELECT = "starter_select"
 STATE_TOWN = "town"
 STATE_BUILDING = "building"

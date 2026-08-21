@@ -10,6 +10,7 @@ from pathlib import Path
 from game.accounts import OfflineAccountProvider
 from game.network_protocol import MessageEnvelope, ProtocolError
 from game.party import PartyManager
+from game.player import Player, PlayerAppearance
 from game.pokemon_data import create_pokemon
 from game.trading import TradeService
 from game.weather import WorldSimulation
@@ -23,6 +24,14 @@ class CoreReleaseTests(unittest.TestCase):
         world.advance_hours(14)
         self.assertEqual(world.time_of_day, "night")
         self.assertEqual(world.clock_text, "22:00")
+
+    def test_player_appearance_has_six_valid_choices(self):
+        choices = {PlayerAppearance(gender, skin) for gender in ("male", "female") for skin in range(3)}
+        self.assertEqual(len(choices), 6)
+        player = Player(appearance=PlayerAppearance("female", 2))
+        self.assertEqual((player.appearance.gender, player.appearance.skin), ("female", 2))
+        with self.assertRaises(ValueError):
+            PlayerAppearance("unknown", 0)
 
     def test_protocol_round_trip_and_rejection(self):
         identity = OfflineAccountProvider().create_guest("Test")

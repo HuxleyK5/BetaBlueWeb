@@ -116,6 +116,15 @@ class SaveManager:
                 raise ValueError("invalid trainer statistics")
             if not isinstance(trainer.get("play_time_seconds"), (int, float)) or trainer["play_time_seconds"] < 0:
                 raise ValueError("invalid play time")
+            appearance = data.get("appearance", {"gender": "male", "skin": 0})
+            if (
+                not isinstance(appearance, dict)
+                or appearance.get("gender") not in {"male", "female"}
+                or not isinstance(appearance.get("skin"), int)
+                or isinstance(appearance.get("skin"), bool)
+                or not 0 <= appearance["skin"] < 3
+            ):
+                raise ValueError("invalid trainer appearance")
             location = data["location"]
             if location["area"] not in game.world.areas:
                 raise ValueError("unknown saved area")
@@ -160,7 +169,7 @@ class SaveManager:
         except (KeyError, TypeError, ValueError) as error:
             raise SaveError(f"The save file contains invalid game state: {error}") from error
         return {
-            "trainer": trainer, "area": area, "position": position, "direction": location.get("direction", "down"),
+            "trainer": trainer, "appearance": appearance, "area": area, "position": position, "direction": location.get("direction", "down"),
             "party": party, "inventory": inventory, "quests": quest_states, "story": story,
             "npcs": npc_states, "eggs": eggs, "simulation": simulation, "identity": identity, "settings": settings,
         }
@@ -257,6 +266,7 @@ class SaveManager:
         for name in ("name", "money", "badges", "pokemon_seen", "pokemon_caught", "steps_taken", "play_time_seconds"):
             setattr(game.player.stats, name, trainer[name])
         game.player_name = game.player.stats.name
+        game.player.set_appearance(state["appearance"]["gender"], state["appearance"]["skin"])
         game.world.current_area_id = state["area"].area_id
         game.game_map = state["area"].game_map
         game.player.teleport(*state["position"])
@@ -288,6 +298,7 @@ class SaveManager:
             "schema_version": SAVE_VERSION,
             "saved_at": datetime.now(timezone.utc).isoformat(),
             "trainer": asdict(game.player.stats),
+            "appearance": {"gender": game.player.appearance.gender, "skin": game.player.appearance.skin},
             "location": {"area": game.world.current_area_id, "position": [game.player.tile_x, game.player.tile_y], "direction": game.player.direction},
             "party": {"active_index": game.party.active_index, "members": [pokemon.to_dict() for pokemon in game.party.party]},
             "storage": {"boxes": [[pokemon.to_dict() for pokemon in box.pokemon] for box in game.party.storage.boxes]},

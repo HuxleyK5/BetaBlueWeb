@@ -31,6 +31,7 @@ Controls:
 
 - Enter: start/confirm
 - Arrow keys or WASD: move
+- Character creation: choose male or female, then one of three trainer looks
 - Q: open/close the quest journal
 - I: open/close the Trainer Bag
 - N: open/close the Pokémon Nursery
@@ -48,6 +49,8 @@ Controls:
 The modular player now supports eight-direction tile movement, held-key movement, frame-rate-independent speed, animated walking, collision boundaries, diagonal corner protection, trainer statistics, and a smooth camera. The current 40×30 development field is intentionally larger than the screen so camera behavior can be tested before Phase 3 introduces data-driven world maps.
 
 `PlayerStats` owns trainer progression such as money, badges, Pokédex counts, steps, and play time. Keeping these values separate from rendering and movement will make Phase 12 save serialization straightforward.
+
+New games now begin with character creation. Choose male or female, select Skin 1, Skin 2, or Skin 3 from the supplied trainer sheet, enter the trainer's name, and then choose a starter. All six appearances retain their numbered design's skin tone, hair, clothing palette, headwear, backpack, and directional walking animation; the selected appearance is preserved in the save file. Older saves safely use Male 1 as the default.
 
 ### Phase 3: Open World Map System
 
@@ -178,7 +181,7 @@ Press R during exploration to open the illustrated Beta Region map. Its original
 ## Phase 12 test checklist
 
 1. The title screen opens from `python main.py`.
-2. Enter opens name entry; typing a name and pressing Enter opens the map.
+2. Enter opens gender selection; choose male or female, choose Skin 1–3, enter a name, and then choose a starter.
 3. Arrow keys or WASD move in all eight directions; holding keys continues movement.
 4. Walking visibly animates and the status bar updates direction and completed steps.
 5. Trees, water, and map edges block movement, including diagonal corner cutting.
