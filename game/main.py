@@ -43,6 +43,9 @@ from .multiplayer_ui import draw_multiplayer_screen
 from .audio import AudioManager
 from .performance import PerformanceMonitor
 from .region_map import RegionMap
+from .visual_effects import BattleAnimator, FeedbackBurst, TransitionFade
+from .sprite_animation import draw_creature
+from .theme import STATUS_COLORS, draw_badge, draw_meter, draw_panel as draw_rpg_panel
 
 
 def clamp(value, min_value, max_value):
@@ -74,6 +77,10 @@ class Game:
         self.nursery = Nursery()
         self.capture_calculator = CaptureCalculator()
         self.capture_animation = None
+        self.battle_animator = BattleAnimator()
+        self.transition_fade = TransitionFade()
+        self.feedback_burst = FeedbackBurst()
+        self.encounter_reveal_elapsed = 0.0
         self.world = WorldManager(self.root_path / "maps")
         self.region_map = RegionMap(self.root_path / "maps" / "overviews" / "beta_region.json", self.world.areas)
         self.world_simulation = WorldSimulation()
@@ -322,10 +329,17 @@ class Game:
     def update(self, dt):
         if self.player.name and self.state != STATE_TOWN:
             self.player.stats.play_time_seconds += dt
-        if self.state == STATE_BATTLE and self.capture_animation is not None:
-            self.capture_animation.update(dt)
-            if self.capture_animation.complete:
-                self.finish_capture_animation()
+        self.transition_fade.update(dt)
+        self.feedback_burst.update(dt)
+        if self.state == STATE_BATTLE:
+            self.battle_animator.update(dt)
+            if self.capture_animation is not None:
+                self.capture_animation.update(dt)
+                if self.capture_animation.complete:
+                    self.finish_capture_animation()
+            return
+        if self.state == STATE_WILD_ENCOUNTER:
+            self.encounter_reveal_elapsed += dt
             return
         if self.state != STATE_TOWN:
             return
@@ -416,6 +430,7 @@ class Game:
         self.battle_selection = 0
         self.capture_animation = None
         self.state = STATE_BATTLE
+        self.battle_animator.start_intro()
         self.audio.play("battle")
 
     def grant_npc_reward(self, npc):
@@ -514,6 +529,9 @@ class Game:
                         result = self.inventory.use(item_id, pokemon)
                     self.inventory_message = result.message
                     if result.success:
+                        feedback = "Evolution!" if item.effect == "evolution" else "Healed!"
+                        color = (247, 205, 75) if item.effect == "evolution" else (101, 224, 132)
+                        self.feedback_burst.start(feedback, color)
                         self.inventory_targeting = False
                         self.inventory_selection = min(self.inventory_selection, max(0, len(self.inventory_entries()) - 1))
             return
@@ -598,6 +616,7 @@ class Game:
             self.active_encounter = encounter
             self.player.stats.pokemon_seen += 1
             self.state = STATE_WILD_ENCOUNTER
+            self.encounter_reveal_elapsed = 0.0
             self.audio.play("encounter")
 
     def dismiss_wild_encounter(self):
@@ -616,6 +635,7 @@ class Game:
         self.battle_selection = 0
         self.capture_animation = None
         self.state = STATE_BATTLE
+        self.battle_animator.start_intro()
         self.audio.play("battle")
 
     def handle_battle_input(self, event):
@@ -624,6 +644,8 @@ class Game:
             self.state = STATE_TOWN
             return
         if self.capture_animation is not None:
+            return
+        if self.battle_animator.busy:
             return
         if battle.result is not None:
             if event.key == pygame.K_RETURN:
@@ -657,7 +679,12 @@ class Game:
             elif event.key in (pygame.K_DOWN, pygame.K_s):
                 self.battle_selection = min(move_count - 1, self.battle_selection + 2)
             elif event.key == pygame.K_RETURN and move_count:
+                move = battle.player_pokemon.known_moves[self.battle_selection]
+                before_player_hp = battle.player_pokemon.current_hp
+                before_enemy_hp = battle.enemy_pokemon.current_hp
+                log_start = len(battle.log)
                 battle.execute_round([BattleAction("player", 0, self.battle_selection)])
+                self.queue_battle_visuals(battle, move, before_player_hp, before_enemy_hp, log_start)
                 self.battle_menu = "main"
                 self.battle_selection = 0
         elif self.battle_menu == "bag":
@@ -671,6 +698,27 @@ class Game:
                 self.battle_selection = (self.battle_selection + 1) % len(ball_ids)
             elif event.key == pygame.K_RETURN and ball_ids:
                 self.throw_ball(ball_ids[self.battle_selection])
+
+    def queue_battle_visuals(self, battle, selected_move, before_player_hp, before_enemy_hp, log_start):
+        """Translate resolved battle events into a non-blocking visual sequence."""
+        damages = {
+            "player": max(0, before_enemy_hp - battle.enemy_pokemon.current_hp),
+            "enemy": max(0, before_player_hp - battle.player_pokemon.current_hp),
+        }
+        queued_sides = set()
+        for line in battle.log[log_start:]:
+            if " used " not in line:
+                continue
+            side = "player" if line.startswith(battle.player_pokemon.display_name + " used ") else "enemy"
+            pokemon = battle.player_pokemon if side == "player" else battle.enemy_pokemon
+            move = next((known for known in pokemon.known_moves if f"used {known.name}" in line), None)
+            if move is None and side == "player":
+                move = selected_move
+            if move is not None:
+                self.battle_animator.play_move(move, side, damages[side])
+                queued_sides.add(side)
+        if "player" not in queued_sides:
+            self.battle_animator.play_move(selected_move, "player", damages["player"])
 
     def available_ball_ids(self):
         return [
@@ -725,6 +773,7 @@ class Game:
                 self.publish_quest_event("capture_count", amount=1)
                 placement = self.party.last_placement
                 self.audio.play("capture")
+                self.feedback_burst.start("Captured!", (247, 205, 75))
                 if placement[0] == "party":
                     battle.log.append(f"{caught.display_name} joined your party!")
                 else:
@@ -748,6 +797,7 @@ class Game:
                 if pokemon.current_hp > 0:
                     pokemon.gain_friendship(3)
             if battle.result.levels_gained:
+                self.feedback_burst.start("Level Up!", (101, 187, 247))
                 self.process_evolutions("level")
             self.process_evolutions("friendship")
         self.active_battle = None
@@ -768,6 +818,7 @@ class Game:
         self.location_banner_timer = 2.5
         self.encounters.reset_grace()
         self.publish_quest_event("visit_area", area.area_id)
+        self.transition_fade.start()
         self.save_game()
 
     def handle_quest_log_input(self, event):
@@ -859,7 +910,7 @@ class Game:
             pygame.draw.rect(self.window.screen, (248, 251, 255) if selected else (190, 207, 225), card, border_radius=15)
             pygame.draw.rect(self.window.screen, (255, 211, 77) if selected else (55, 77, 105), card, 5, border_radius=15)
             sprite = self.assets.image(pokemon.species.sprite_path, size=(155, 155))
-            self.window.screen.blit(sprite, sprite.get_rect(center=(card.centerx, card.y + 105)))
+            draw_creature(self.window.screen, sprite, (card.centerx, card.y + 105), phase_offset=index * 0.7)
             name = self.body_font.render(pokemon.species.name, True, (27, 45, 72))
             types = self.small_font.render(" / ".join(pokemon.species.types), True, (65, 82, 106))
             self.window.screen.blit(name, name.get_rect(center=(card.centerx, card.y + 220)))
@@ -883,15 +934,26 @@ class Game:
         draw_world_effects(self.window.screen, self.world_simulation, self.encounter_context)
         if self.location_banner_timer > 0:
             self.draw_location_banner()
-        status_bar = pygame.Rect(0, SCREEN_HEIGHT - 40, SCREEN_WIDTH, 40)
-        pygame.draw.rect(self.window.screen, (10, 10, 30), status_bar)
+        status_bar = pygame.Rect(8, SCREEN_HEIGHT - 62, SCREEN_WIDTH - 16, 54)
+        draw_rpg_panel(self.window.screen, status_bar, (24, 43, 68), (244, 202, 72), 3, 10)
         stats = self.player.stats
         status_text = self.small_font.render(
-            f"{stats.name or 'Unknown'} | Day {self.world_simulation.day} {self.world_simulation.clock_text} | {self.world_simulation.season.title()} | {self.encounter_context.weather.title()} | ${stats.money:,}",
+            f"{stats.name or 'Unknown'}  •  Day {self.world_simulation.day} {self.world_simulation.clock_text}  •  {self.world_simulation.season.title()}  •  {self.encounter_context.weather.title()}  •  ${stats.money:,}",
             True,
             (255, 255, 255),
         )
-        self.window.screen.blit(status_text, (10, SCREEN_HEIGHT - 32))
+        self.window.screen.blit(status_text, (status_bar.x + 12, status_bar.y + 8))
+        active = self.party.active_pokemon
+        if active is not None:
+            name = self.small_font.render(f"{active.display_name} Lv.{active.level}", True, (255, 229, 123))
+            self.window.screen.blit(name, (status_bar.x + 12, status_bar.y + 29))
+            hp_ratio = active.current_hp / max(1, active.max_hp)
+            hp_color = (68, 190, 94) if hp_ratio > 0.5 else (229, 184, 48) if hp_ratio > 0.2 else (220, 69, 59)
+            draw_meter(self.window.screen, (status_bar.x + 175, status_bar.y + 33, 150, 12), hp_ratio, hp_color)
+            xp_ratio = 1.0 if active.level >= 100 else active.experience / max(1, active.experience_to_next_level)
+            draw_meter(self.window.screen, (status_bar.x + 343, status_bar.y + 33, 112, 12), xp_ratio, (71, 157, 229))
+            if active.status != "healthy":
+                draw_badge(self.window.screen, active.status.upper(), self.small_font, (status_bar.right - 102, status_bar.y + 28, 88, 21), STATUS_COLORS.get(active.status, (120, 120, 130)))
         self.draw_quest_tracker()
 
     def draw_quest_tracker(self):
@@ -906,8 +968,11 @@ class Game:
                 text = self.quests.objective_text(objective, state)
                 panel.blit(self.small_font.render(text[:43], True, (235, 242, 255)), (10, 31))
                 self.window.screen.blit(panel, (12, 12))
-        hint = self.small_font.render("Q: Quests  I: Bag  N: Nursery  M: Link  F6: Wait", True, (235, 242, 255))
-        self.window.screen.blit(hint, (SCREEN_WIDTH - hint.get_width() - 12, 12))
+        hint = self.small_font.render("Q Quests  I Bag  R Map  N Nursery  M Link  F6 Wait", True, (235, 242, 255))
+        hint_backing = hint.get_rect(topright=(SCREEN_WIDTH - 12, 12)).inflate(16, 10)
+        pygame.draw.rect(self.window.screen, (12, 28, 52), hint_backing, border_radius=8)
+        pygame.draw.rect(self.window.screen, (95, 142, 190), hint_backing, 2, border_radius=8)
+        self.window.screen.blit(hint, hint.get_rect(center=hint_backing.center))
         if self.quest_notice_timer > 0 and self.quest_notice:
             notice = self.body_font.render(self.quest_notice, True, (255, 234, 126))
             backing = notice.get_rect(center=(SCREEN_WIDTH // 2, 365)).inflate(28, 18)
@@ -974,14 +1039,15 @@ class Game:
 
     def draw_dialogue(self):
         panel = pygame.Rect(35, 405, SCREEN_WIDTH - 70, 160)
-        pygame.draw.rect(self.window.screen, (247, 250, 255), panel, border_radius=14)
-        pygame.draw.rect(self.window.screen, (35, 57, 91), panel, 4, border_radius=14)
-        name = self.body_font.render(self.active_npc.name, True, (37, 76, 145))
-        self.window.screen.blit(name, (panel.x + 18, panel.y + 12))
+        draw_rpg_panel(self.window.screen, panel, (247, 250, 245), (35, 57, 91), 4, 14)
+        nameplate = pygame.Rect(panel.x + 15, panel.y - 17, 220, 42)
+        draw_rpg_panel(self.window.screen, nameplate, (48, 101, 171), (247, 201, 66), 3, 9)
+        name = self.body_font.render(self.active_npc.name, True, (255, 255, 255))
+        self.window.screen.blit(name, (nameplate.x + 12, nameplate.y + 7))
         line = self.dialogue_lines[min(self.dialogue_index, len(self.dialogue_lines) - 1)]
         for index, wrapped in enumerate(wrap_text(line, self.small_font, panel.width - 40)):
             text = self.small_font.render(wrapped, True, (31, 43, 61))
-            self.window.screen.blit(text, (panel.x + 20, panel.y + 55 + index * 25))
+            self.window.screen.blit(text, (panel.x + 24, panel.y + 48 + index * 27))
         hint = self.small_font.render("ENTER: continue   •   ESCAPE: close", True, (95, 107, 125))
         self.window.screen.blit(hint, (panel.right - hint.get_width() - 18, panel.bottom - 30))
 
@@ -1005,8 +1071,17 @@ class Game:
         pygame.draw.rect(self.window.screen, (244, 249, 255), panel, border_radius=18)
         pygame.draw.rect(self.window.screen, (35, 56, 92), panel, 5, border_radius=18)
         pokemon = encounter.pokemon
-        sprite = self.assets.image(pokemon.species.sprite_path, size=(180, 180))
-        self.window.screen.blit(sprite, sprite.get_rect(center=(SCREEN_WIDTH // 2, 255)))
+        reveal = min(1.0, self.encounter_reveal_elapsed / 0.5)
+        size = max(20, round(180 * (1 - (1 - reveal) ** 3)))
+        sprite = self.assets.image(pokemon.species.sprite_path, size=(size, size))
+        sprite_y = round(255 - (1 - reveal) * 55)
+        if reveal >= 1:
+            draw_creature(self.window.screen, sprite, (SCREEN_WIDTH // 2, sprite_y), pokemon.status)
+        else:
+            self.window.screen.blit(sprite, sprite.get_rect(center=(SCREEN_WIDTH // 2, sprite_y)))
+        if reveal < 1:
+            ring_radius = round(35 + reveal * 100)
+            pygame.draw.circle(self.window.screen, (255, 239, 135), (SCREEN_WIDTH // 2, 255), ring_radius, 4)
 
         rarity_colors = {
             "common": (80, 110, 130), "uncommon": (42, 145, 84),
@@ -1082,9 +1157,11 @@ class Game:
                     self.window.screen, self.active_battle, self.assets,
                     self.title_font, self.body_font, self.small_font,
                     self.battle_menu, self.battle_selection,
-                    self.inventory, self.capture_animation,
+                    self.inventory, self.capture_animation, self.battle_animator,
                 )
 
+            self.feedback_burst.draw(self.window.screen, self.body_font)
+            self.transition_fade.draw(self.window.screen)
             self.performance.draw(self.window.screen, self.small_font, self.assets)
 
             self.window.present()

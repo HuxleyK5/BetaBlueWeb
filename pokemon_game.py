@@ -3094,5 +3094,10 @@ class Game:
 
 
 if __name__ == "__main__":
-    game = Game()
-    game.run()
+    # Compatibility entry point: this file contains the original prototype,
+    # while all completed development phases live in the modular ``game``
+    # package. Running the active legacy file in VS Code must open the current
+    # game rather than the obsolete prototype.
+    from game.main import main as run_current_game
+
+    raise SystemExit(run_current_game())

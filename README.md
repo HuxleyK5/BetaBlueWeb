@@ -27,6 +27,8 @@ python -m pip install -r requirements.txt
 python main.py
 ```
 
+`python pokemon_game.py` also launches the same current modular game for compatibility with older VS Code run configurations. The classes above its final launcher block are retained legacy prototype code and are not the active implementation.
+
 Controls:
 
 - Enter: start/confirm
@@ -177,6 +179,12 @@ Release infrastructure includes `scripts/validate_release.py`, standard-library 
 ### Beta Region Overview
 
 Press R during exploration to open the illustrated Beta Region map. Its original geography is a presentation asset, while location names, colored markers, white route links, current-position highlighting, and secret-location visibility come from `maps/overviews/beta_region.json`. This separation keeps the map readable and makes later regions straightforward to add without repainting labels into an image.
+
+### Restored Visual Presentation
+
+The modular game now carries forward the legacy prototype's visual energy. Maps use textured grass and paths, detailed trees, buildings and mountains, animated water, and swaying tall grass. Wild encounters scale into view, connected areas use a short fade, and battles include sliding introductions, raised platforms, sprite lunges, impact shake and flash, floating damage, and move effects for Fire, Water, Grass, Ground, Psychic, Poison, Flying, Steel, Dark, Bug, Fighting, and Normal attacks. Existing weather, walking, title, and Poké Ball animations remain integrated.
+
+The current presentation pass adds one shared RPG visual language through `game/theme.py`: layered panels, pixel-style gradients, selected-button markers, compact badges, and animated HP/XP meters now remain consistent across battle, exploration, dialogue, inventory, and shops. Creature sprites have independent idle bobbing, breathing, ground shadows, and status particles. NPCs use stable individual palettes, facing details, role-specific accessories, and subtle movement instead of generic markers. Healing, captures, evolution, and level gains use a reusable sparkle-and-text feedback burst. All effects are time-based and non-blocking, so input and the main loop stay responsive while animations play.
 
 ## Phase 12 test checklist
 

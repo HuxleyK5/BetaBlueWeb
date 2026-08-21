@@ -5,6 +5,8 @@ import pygame
 from .config import SCREEN_HEIGHT, SCREEN_WIDTH
 from .items import ITEM_DATABASE
 from .ui import draw_health_bar, draw_panel
+from .sprite_animation import draw_creature
+from .theme import STATUS_COLORS, draw_badge, draw_button, draw_meter
 
 
 TYPE_COLORS = {
@@ -17,18 +19,28 @@ TYPE_COLORS = {
 
 def draw_battle_screen(
     surface, battle, assets, title_font, body_font, small_font, menu_mode, selected,
-    inventory=None, capture_animation=None,
+    inventory=None, capture_animation=None, animator=None,
 ):
-    surface.fill((124, 204, 224))
-    pygame.draw.ellipse(surface, (105, 180, 105), (420, 185, 330, 105))
-    pygame.draw.ellipse(surface, (93, 162, 91), (40, 345, 370, 120))
+    # Layered handheld-style arena background and raised battle platforms.
+    surface.fill((111, 196, 225))
+    pygame.draw.rect(surface, (174, 226, 220), (0, 235, SCREEN_WIDTH, 195))
+    for index in range(9):
+        pygame.draw.circle(surface, (137, 211, 199), (45 + index * 97, 265 + (index % 3) * 32), 25 + index % 2 * 10)
+    _draw_platform(surface, pygame.Rect(421, 190, 330, 100), (123, 191, 105), (67, 133, 85))
+    _draw_platform(surface, pygame.Rect(39, 350, 372, 112), (111, 178, 98), (60, 121, 77))
 
     player = battle.player_pokemon
     enemy = battle.enemy_pokemon
     enemy_sprite = assets.image(enemy.species.sprite_path, size=(180, 180))
     player_sprite = pygame.transform.flip(assets.image(player.species.sprite_path, size=(210, 210)), True, False)
-    surface.blit(enemy_sprite, enemy_sprite.get_rect(center=(585, 165)))
-    surface.blit(player_sprite, player_sprite.get_rect(center=(235, 345)))
+    enemy_offset = animator.sprite_offset("enemy") if animator else (0, 0)
+    player_offset = animator.sprite_offset("player") if animator else (0, 0)
+    if animator is None or animator.sprite_visible("enemy"):
+        draw_creature(surface, enemy_sprite, (585 + enemy_offset[0], 165 + enemy_offset[1]), enemy.status, phase_offset=0.7)
+    if animator is None or animator.sprite_visible("player"):
+        draw_creature(surface, player_sprite, (235 + player_offset[0], 345 + player_offset[1]), player.status, flipped=False)
+    if animator is not None:
+        animator.draw(surface, body_font)
 
     _draw_status_panel(surface, enemy, pygame.Rect(35, 45, 330, 105), body_font, small_font)
     _draw_status_panel(surface, player, pygame.Rect(430, 300, 335, 115), body_font, small_font, show_hp=True)
@@ -47,6 +59,13 @@ def draw_battle_screen(
         _draw_capture_animation(surface, capture_animation, small_font)
 
 
+def _draw_platform(surface, rect, top_color, side_color):
+    shadow = rect.move(0, 12)
+    pygame.draw.ellipse(surface, side_color, shadow)
+    pygame.draw.ellipse(surface, top_color, rect)
+    pygame.draw.arc(surface, (191, 229, 145), rect.inflate(-16, -18), 3.2, 6.1, 3)
+
+
 def _draw_status_panel(surface, pokemon, rect, body_font, small_font, show_hp=False):
     draw_panel(surface, rect, (248, 250, 241), (44, 65, 68), 3)
     name = body_font.render(pokemon.display_name, True, (28, 42, 53))
@@ -59,9 +78,16 @@ def _draw_status_panel(surface, pokemon, rect, body_font, small_font, show_hp=Fa
     if show_hp:
         hp = small_font.render(f"{pokemon.current_hp} / {pokemon.max_hp}", True, (45, 55, 64))
         surface.blit(hp, (rect.right - hp.get_width() - 18, rect.y + 80))
+        xp_needed = pokemon.experience_to_next_level
+        xp_ratio = 1.0 if pokemon.level >= 100 else pokemon.experience / max(1, xp_needed)
+        draw_meter(surface, (rect.x + 55, rect.y + 101, rect.width - 75, 9), xp_ratio, (69, 155, 226))
+        surface.blit(small_font.render("XP", True, (45, 58, 66)), (rect.x + 15, rect.y + 94))
+    for index, type_name in enumerate(pokemon.species.types):
+        badge = pygame.Rect(rect.x + 15 + index * 72, rect.y + 80, 66, 20)
+        draw_badge(surface, type_name.upper(), small_font, badge, TYPE_COLORS.get(type_name, (100, 110, 125)))
     if pokemon.status != "healthy":
-        status = small_font.render(pokemon.status.upper(), True, (190, 55, 45))
-        surface.blit(status, (rect.x + 15, rect.y + 82))
+        badge = pygame.Rect(rect.right - 92, rect.y + 80, 76, 20)
+        draw_badge(surface, pokemon.status.upper(), small_font, badge, STATUS_COLORS.get(pokemon.status, (190, 55, 45)))
 
 
 def _draw_main_menu(surface, battle, rect, body_font, small_font, selected):
@@ -73,7 +99,7 @@ def _draw_main_menu(surface, battle, rect, body_font, small_font, selected):
         option = pygame.Rect(rect.x + 405 + index * 115, rect.y + 70, 105, 52)
         fill = (55, 104, 180) if selected == index else (216, 226, 238)
         color = (255, 255, 255) if selected == index else (35, 49, 70)
-        pygame.draw.rect(surface, fill, option, border_radius=8)
+        draw_button(surface, option, selected == index, (55, 104, 180))
         text = body_font.render(label, True, color)
         surface.blit(text, text.get_rect(center=option.center))
 
@@ -85,7 +111,7 @@ def _draw_moves(surface, battle, rect, body_font, small_font, selected):
         option = pygame.Rect(rect.x + 15 + column * 370, rect.y + 12 + row * 62, 355, 55)
         fill = TYPE_COLORS.get(move.type_name, (100, 110, 125)) if selected == index else (225, 232, 240)
         text_color = (255, 255, 255) if selected == index else (28, 40, 58)
-        pygame.draw.rect(surface, fill, option, border_radius=8)
+        draw_button(surface, option, selected == index, TYPE_COLORS.get(move.type_name, (100, 110, 125)))
         surface.blit(body_font.render(move.name, True, text_color), (option.x + 12, option.y + 5))
         pp = battle.remaining_pp(pokemon, move)
         detail = small_font.render(f"{move.type_name}  {move.category.title()}  PP {pp}/{move.pp}", True, text_color)
@@ -100,7 +126,7 @@ def _draw_bag(surface, inventory, rect, body_font, small_font, selected):
         column, row = index % 3, index // 3
         option = pygame.Rect(rect.x + 12 + column * 250, rect.y + 12 + row * 62, 238, 55)
         active = index == selected
-        pygame.draw.rect(surface, (69, 112, 183) if active else (225, 232, 240), option, border_radius=8)
+        draw_button(surface, option, active, (69, 112, 183))
         color = (255, 255, 255) if active else (28, 40, 58)
         item = ITEM_DATABASE[item_id]
         surface.blit(body_font.render(item.name, True, color), (option.x + 10, option.y + 5))

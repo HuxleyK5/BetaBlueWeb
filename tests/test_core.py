@@ -6,6 +6,7 @@ os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 
 import unittest
 from pathlib import Path
+import pygame
 
 from game.accounts import OfflineAccountProvider
 from game.network_protocol import MessageEnvelope, ProtocolError
@@ -16,6 +17,8 @@ from game.trading import TradeService
 from game.weather import WorldSimulation
 from game.region_map import RegionMap
 from game.world import WorldManager
+from game.theme import draw_meter, draw_panel
+from game.visual_effects import BattleAnimator, FeedbackBurst, TransitionFade
 
 
 class CoreReleaseTests(unittest.TestCase):
@@ -32,6 +35,33 @@ class CoreReleaseTests(unittest.TestCase):
         self.assertEqual((player.appearance.gender, player.appearance.skin), ("female", 2))
         with self.assertRaises(ValueError):
             PlayerAppearance("unknown", 0)
+
+    def test_battle_visuals_are_non_blocking_and_finish(self):
+        animator = BattleAnimator()
+        animator.start_intro()
+        self.assertTrue(animator.busy)
+        animator.update(animator.intro_duration)
+        move = create_pokemon("torchic", 5).known_moves[0]
+        animator.play_move(move, "player", 5)
+        self.assertTrue(animator.busy)
+        animator.update(1.0)
+        self.assertFalse(animator.busy)
+
+    def test_shared_visual_widgets_and_feedback_render(self):
+        pygame.font.init()
+        surface = pygame.Surface((800, 600), pygame.SRCALPHA)
+        draw_panel(surface, (20, 20, 300, 100))
+        draw_meter(surface, (40, 70, 220, 16), 0.65, (70, 190, 95))
+        feedback = FeedbackBurst()
+        feedback.start("Level Up!", (255, 215, 75))
+        feedback.draw(surface, pygame.font.Font(None, 28))
+        self.assertTrue(feedback.active)
+        feedback.update(feedback.duration)
+        self.assertFalse(feedback.active)
+        transition = TransitionFade()
+        transition.start()
+        transition.draw(surface)
+        self.assertTrue(transition.active)
 
     def test_protocol_round_trip_and_rejection(self):
         identity = OfflineAccountProvider().create_guest("Test")

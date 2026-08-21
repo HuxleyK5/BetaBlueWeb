@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass, field
 import json
+import math
 from pathlib import Path
 import random
 
@@ -69,13 +70,49 @@ class NPC:
     def draw(self, surface, offset_x, offset_y, small_font):
         x = round(offset_x + self.tile_x * TILE_SIZE)
         y = round(offset_y + self.tile_y * TILE_SIZE)
-        pygame.draw.ellipse(surface, (35, 65, 65), (x + 7, y + 31, 26, 8))
-        pygame.draw.circle(surface, ROLE_COLORS[self.role], (x + 20, y + 18), 14)
-        pygame.draw.rect(surface, ROLE_COLORS[self.role], (x + 9, y + 18, 22, 18), border_radius=6)
-        pygame.draw.circle(surface, (247, 214, 181), (x + 20, y + 12), 8)
+        identity = sum((index + 1) * ord(char) for index, char in enumerate(self.npc_id))
+        bob = round(1.5 * math.sin(pygame.time.get_ticks() / 420 + identity))
+        skin_tones = ((247, 214, 181), (213, 159, 116), (132, 83, 57), (238, 187, 148))
+        hair_colors = ((53, 38, 31), (112, 66, 32), (33, 40, 55), (197, 202, 207), (82, 45, 69))
+        skin = skin_tones[identity % len(skin_tones)]
+        hair = hair_colors[(identity // 3) % len(hair_colors)]
+        outfit = ROLE_COLORS[self.role]
+        accent = tuple(min(255, channel + 58) for channel in outfit)
+        facing_back = self.direction == "up"
+        facing_left = self.direction == "left"
+        facing_right = self.direction == "right"
+
+        pygame.draw.ellipse(surface, (27, 57, 58), (x + 8, y + 33, 24, 7))
+        pygame.draw.rect(surface, (38, 43, 52), (x + 12, y + 29 + bob, 7, 8), border_radius=2)
+        pygame.draw.rect(surface, (38, 43, 52), (x + 21, y + 29 + bob, 7, 8), border_radius=2)
+        pygame.draw.rect(surface, outfit, (x + 9, y + 18 + bob, 22, 15), border_radius=5)
+        pygame.draw.line(surface, accent, (x + 12, y + 21 + bob), (x + 28, y + 21 + bob), 2)
+        pygame.draw.rect(surface, skin, (x + 6, y + 21 + bob, 5, 9), border_radius=2)
+        pygame.draw.rect(surface, skin, (x + 29, y + 21 + bob, 5, 9), border_radius=2)
+        pygame.draw.circle(surface, skin, (x + 20, y + 13 + bob), 9)
+        pygame.draw.arc(surface, hair, (x + 11, y + 4 + bob, 18, 18), 0, 3.1416, 6)
+        # Stable role accessories make silhouettes readable without sprite files.
+        if self.role == "quest":
+            pygame.draw.rect(surface, (242, 244, 239), (x + 8, y + 18 + bob, 5, 14), border_radius=2)
+            pygame.draw.rect(surface, (242, 244, 239), (x + 27, y + 18 + bob, 5, 14), border_radius=2)
+        elif self.role == "rival":
+            pygame.draw.line(surface, accent, (x + 11, y + 8 + bob), (x + 29, y + 8 + bob), 3)
+        elif self.role == "gym_leader":
+            pygame.draw.polygon(surface, (248, 207, 61), [(x + 14, y + 6 + bob), (x + 17, y + bob), (x + 20, y + 6 + bob), (x + 24, y + bob), (x + 27, y + 7 + bob)])
+        elif self.role == "shopkeeper":
+            pygame.draw.rect(surface, (244, 239, 215), (x + 12, y + 18 + bob, 16, 12), border_radius=3)
+        elif self.role == "trainer":
+            pygame.draw.rect(surface, (83, 68, 49), (x + 27, y + 20 + bob, 7, 11), border_radius=2)
+        if not facing_back:
+            eye_y = y + 14 + bob
+            eye_xs = (14, 18) if facing_left else (22, 26) if facing_right else (17, 23)
+            for eye_x in eye_xs:
+                pygame.draw.rect(surface, (25, 27, 33), (x + eye_x, eye_y, 2, 2))
         if self.can_battle():
+            pulse = 2 if (pygame.time.get_ticks() // 250) % 2 else 0
+            pygame.draw.circle(surface, (35, 49, 67), (x + 20, y - 5 - pulse), 10)
             marker = small_font.render("!", True, (255, 238, 92))
-            surface.blit(marker, marker.get_rect(center=(x + 20, y - 5)))
+            surface.blit(marker, marker.get_rect(center=(x + 20, y - 6 - pulse)))
 
 
 class NPCManager:
